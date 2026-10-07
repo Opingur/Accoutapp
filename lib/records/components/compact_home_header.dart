@@ -110,13 +110,6 @@ class CompactHomeHeader extends StatelessWidget {
                         flex: 30,
                         child: _MonthColumn(month: month, onTap: onMonthTap),
                       ),
-                      const VerticalDivider(
-                        width: 1,
-                        thickness: 1,
-                        indent: 6,
-                        endIndent: 6,
-                        color: Color(0x66584412),
-                      ),
                       _TotalColumn(
                         label: '收入',
                         value: _total(_income),
