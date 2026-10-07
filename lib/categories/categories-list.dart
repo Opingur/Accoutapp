@@ -1,84 +1,76 @@
 import 'package:flutter/material.dart';
-import 'package:piggybank/models/category.dart';
+import 'package:piggybank/categories/category-ordering.dart';
 import 'package:piggybank/categories/edit-category-page.dart';
-import 'package:piggybank/i18n.dart';
+import 'package:piggybank/models/category.dart';
 
 import '../components/category_icon_circle.dart';
 
-class CategoriesList extends StatefulWidget {
-  /// CategoriesList fetches the categories of a given categoryType (input parameter)
-  /// and renders them using a vertical ListView.
+class CategoriesList extends StatelessWidget {
+  const CategoriesList(this.categories, {super.key, this.callback});
 
   final List<Category?> categories;
-  final void Function()? callback;
+  final Future<void> Function()? callback;
 
-  CategoriesList(this.categories, {this.callback});
-
-  @override
-  CategoriesListState createState() => CategoriesListState();
-}
-
-class CategoriesListState extends State<CategoriesList> {
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  final _biggerFont = const TextStyle(fontSize: 18.0);
-
-  Widget _buildCategories() {
-    return ListView.separated(
-      separatorBuilder: (context, index) => Divider(thickness: 0.5),
-      itemCount: widget.categories.length,
-      padding: const EdgeInsets.all(6.0),
-      itemBuilder: /*1*/ (context, i) {
-        return _buildCategory(widget.categories[i]!);
-      },
+  Future<void> _openCategory(BuildContext context, Category category) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditCategoryPage(passedCategory: category),
+      ),
     );
+    await callback?.call();
   }
 
-  Widget _buildCategory(Category category) {
-    return InkWell(
-      onTap: () async {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EditCategoryPage(passedCategory: category),
-          ),
-        );
-        if (widget.callback != null) widget.callback!();
-      },
-      child: Opacity(
-        opacity: category.isArchived ? 0.8 : 1.0, // Dim the tile
-        child: ListTile(
-          leading: CategoryIconCircle(
-            iconEmoji: category.iconEmoji,
-            iconDataFromDefaultIconSet: category.icon,
-            backgroundColor: category.color,
-            overlayIcon: category.isArchived ? Icons.archive : null,
-          ),
-          title: Text(category.name!, style: _biggerFont),
+  Widget _heading(BuildContext context, String text) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .55),
         ),
       ),
     );
   }
 
+  Widget _tile(BuildContext context, Category category) {
+    return ListTile(
+      dense: true,
+      leading: CategoryIconCircle(
+        iconEmoji: category.iconEmoji,
+        iconDataFromDefaultIconSet: category.icon,
+        backgroundColor: category.color,
+        overlayIcon: category.isArchived ? Icons.archive : null,
+      ),
+      title: Text(category.name ?? '', style: const TextStyle(fontSize: 16)),
+      subtitle: category.isSystem ? const Text('系统分类') : null,
+      trailing: category.isSystem
+          ? const Icon(Icons.lock_outline, size: 18)
+          : null,
+      onTap: () => _openCategory(context, category),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.all(15),
-      child: widget.categories.isEmpty
-          ? Column(
-              children: <Widget>[
-                Image.asset('assets/images/no_entry_2.png', width: 200),
-                Text(
-                  "No categories yet.".i18n,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 22.0),
-                ),
-              ],
-            )
-          : _buildCategories(),
+    final ordered = categories.whereType<Category>().toList()
+      ..sort(compareCategoriesSystemFirst);
+    final system = ordered.where((category) => category.isSystem).toList();
+    final custom = ordered.where((category) => !category.isSystem).toList();
+
+    if (ordered.isEmpty) {
+      return const Center(child: Text('暂无分类'));
+    }
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 92),
+      children: [
+        if (system.isNotEmpty) _heading(context, '系统分类'),
+        ...system.map((category) => _tile(context, category)),
+        if (custom.isNotEmpty) _heading(context, '我的分类'),
+        ...custom.map((category) => _tile(context, category)),
+      ],
     );
   }
 }

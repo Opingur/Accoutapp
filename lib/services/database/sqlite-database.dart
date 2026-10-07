@@ -36,7 +36,7 @@ class SqliteDatabase implements DatabaseInterface {
 
   SqliteDatabase._privateConstructor();
   static final SqliteDatabase instance = SqliteDatabase._privateConstructor();
-  static int get version => 32;
+  static int get version => 33;
   static Database? _db;
 
   static const String databaseFileName = 'movements.db';
@@ -151,10 +151,12 @@ class SqliteDatabase implements DatabaseInterface {
   static Future<File?> createDatabaseSnapshot() async {
     try {
       final tempDir = await getTemporaryDirectory();
-      final snapshot = File(join(
-        tempDir.path,
-        'oinkoin_snapshot_${DateTime.now().millisecondsSinceEpoch}.db',
-      ));
+      final snapshot = File(
+        join(
+          tempDir.path,
+          'oinkoin_snapshot_${DateTime.now().millisecondsSinceEpoch}.db',
+        ),
+      );
       final db = await instance.database;
       if (db == null) {
         _logger.warning('No open database to snapshot');
@@ -315,25 +317,63 @@ class SqliteDatabase implements DatabaseInterface {
   ) async {
     try {
       _logger.debug('Deleting category: $categoryName');
+      if (categoryName == null || categoryType == null) return;
       final db = (await database)!;
-      var categoryIndex = categoryType!.index;
-      await db.delete(
-        "categories",
-        where: "name = ? AND category_type = ?",
-        whereArgs: [categoryName, categoryIndex],
-      );
-      await db.delete(
-        "records",
-        where: "category_name = ? AND category_type = ?",
-        whereArgs: [categoryName, categoryIndex],
-      );
-      await db.delete(
-        "recurrent_record_patterns",
-        where: "category_name = ? AND category_type = ?",
-        whereArgs: [categoryName, categoryIndex],
-      );
-      _logger.info('Category deleted: $categoryName');
-      _notifyDatabaseChanged();
+      var deleted = false;
+
+      await db.transaction((transaction) async {
+        final rows = await transaction.query(
+          'categories',
+          where: 'name = ? AND category_type = ?',
+          whereArgs: [categoryName, categoryType.index],
+        );
+        if (rows.isEmpty) return;
+
+        final category = Category.fromMap(
+          Map<String, dynamic>.from(rows.single),
+        );
+        if (category.isSystem) {
+          throw SystemCategoryModificationException(categoryName: categoryName);
+        }
+
+        final recordCount =
+            Sqflite.firstIntValue(
+              await transaction.rawQuery(
+                'SELECT COUNT(*) FROM records '
+                'WHERE category_name = ? AND category_type = ?',
+                [categoryName, categoryType.index],
+              ),
+            ) ??
+            0;
+        final recurrentPatternCount =
+            Sqflite.firstIntValue(
+              await transaction.rawQuery(
+                'SELECT COUNT(*) FROM recurrent_record_patterns '
+                'WHERE category_name = ? AND category_type = ?',
+                [categoryName, categoryType.index],
+              ),
+            ) ??
+            0;
+        if (recordCount > 0 || recurrentPatternCount > 0) {
+          throw CategoryInUseException(
+            categoryName: categoryName,
+            recordCount: recordCount,
+            recurrentPatternCount: recurrentPatternCount,
+          );
+        }
+
+        await transaction.delete(
+          'categories',
+          where: 'name = ? AND category_type = ?',
+          whereArgs: [categoryName, categoryType.index],
+        );
+        deleted = true;
+      });
+
+      if (deleted) {
+        _logger.info('Category deleted: $categoryName');
+        _notifyDatabaseChanged();
+      }
     } catch (e, st) {
       _logger.handle(e, st, 'Failed to delete category: $categoryName');
       rethrow;
@@ -347,10 +387,23 @@ class SqliteDatabase implements DatabaseInterface {
     Category? updatedCategory,
   ) async {
     final db = (await database)!;
-    var categoryIndex = existingCategoryType!.index;
+    if (existingCategoryType == null || updatedCategory == null) return 0;
+    final existingCategory = await getCategory(
+      existingCategoryName,
+      existingCategoryType,
+    );
+    if (existingCategory == null) return 0;
+    if (existingCategory.isSystem) {
+      throw SystemCategoryModificationException(
+        categoryName: existingCategoryName,
+      );
+    }
+    // System status is migration-owned and cannot be forged through an edit.
+    updatedCategory.isSystem = false;
+    var categoryIndex = existingCategoryType.index;
     int newIndex = await db.update(
       "categories",
-      updatedCategory!.toMap(),
+      updatedCategory.toMap(),
       where: "name = ? AND category_type = ?",
       whereArgs: [existingCategoryName, categoryIndex],
     );
@@ -808,6 +861,7 @@ class SqliteDatabase implements DatabaseInterface {
                 c.icon,
                 c.icon_emoji,
                 c.is_archived,
+                c.is_system,
                 GROUP_CONCAT(rt.tag_name) AS tags
             FROM records AS m
             LEFT JOIN categories AS c
@@ -989,7 +1043,12 @@ class SqliteDatabase implements DatabaseInterface {
   @override
   Future<void> deleteProfileAndRecords(int id) async {
     final db = (await database)!;
-    for (final table in ['records', 'recurrent_record_patterns', 'budgets', 'wallets']) {
+    for (final table in [
+      'records',
+      'recurrent_record_patterns',
+      'budgets',
+      'wallets',
+    ]) {
       await db.delete(table, where: 'profile_id = ?', whereArgs: [id]);
     }
     await db.delete('profiles', where: 'id = ?', whereArgs: [id]);
@@ -1367,6 +1426,7 @@ class SqliteDatabase implements DatabaseInterface {
                 c.icon,
                 c.icon_emoji,
                 c.is_archived,
+                c.is_system,
                 GROUP_CONCAT(rt.tag_name) AS tags
             FROM records AS m
             LEFT JOIN categories AS c
@@ -1513,7 +1573,7 @@ class SqliteDatabase implements DatabaseInterface {
         ? "WHERE m.profile_id = $profileId"
         : "";
     var maps = await db.rawQuery("""
-            SELECT m.*, c.name, c.color, c.category_type, c.icon, c.icon_emoji, c.is_archived, m.tags
+            SELECT m.*, c.name, c.color, c.category_type, c.icon, c.icon_emoji, c.is_archived, c.is_system, m.tags
             FROM recurrent_record_patterns as m LEFT JOIN categories as c ON m.category_name = c.name AND m.category_type = c.category_type
             $profileFilter
         """);
@@ -1616,6 +1676,14 @@ class SqliteDatabase implements DatabaseInterface {
     bool isArchived,
   ) async {
     final db = (await database)!;
+
+    if (!isArchived &&
+        SqliteMigrationService.isLegacyDefaultCategory(
+          categoryName,
+          categoryType,
+        )) {
+      throw LegacyCategoryHiddenException(categoryName: categoryName);
+    }
 
     // Convert the boolean `isArchived` to integer (1 for true, 0 for false)
     int isArchivedInt = isArchived ? 1 : 0;

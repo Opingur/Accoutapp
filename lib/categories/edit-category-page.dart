@@ -5,8 +5,11 @@ import 'package:piggybank/helpers/alert-dialog-builder.dart';
 import 'package:piggybank/models/category-type.dart';
 import 'package:piggybank/models/category.dart';
 import 'package:piggybank/services/database/database-interface.dart';
+import 'package:piggybank/services/database/exceptions.dart';
 import 'package:piggybank/services/service-config.dart';
+
 import '../style.dart';
+
 import 'package:piggybank/i18n.dart';
 
 class EditCategoryPage extends StatefulWidget {
@@ -18,7 +21,7 @@ class EditCategoryPage extends StatefulWidget {
   final CategoryType? categoryType;
 
   EditCategoryPage({Key? key, this.passedCategory, this.categoryType})
-      : super(key: key);
+    : super(key: key);
 
   @override
   EditCategoryPageState createState() =>
@@ -37,6 +40,8 @@ class EditCategoryPageState extends State<EditCategoryPage> {
   DatabaseInterface database = ServiceConfig.database;
 
   final _formKey = GlobalKey<FormState>();
+
+  bool get _isSystemCategory => widget.passedCategory?.isSystem ?? false;
 
   Category initCategory() {
     Category category = new Category(null);
@@ -89,11 +94,12 @@ class EditCategoryPageState extends State<EditCategoryPage> {
                   ? Center(
                       // Center the content
                       child: Text(
-                      category!.iconEmoji!, // Display the emoji
-                      style: TextStyle(
-                        fontSize: 30, // Adjust the font size for the emoji
+                        category!.iconEmoji!, // Display the emoji
+                        style: TextStyle(
+                          fontSize: 30, // Adjust the font size for the emoji
+                        ),
                       ),
-                    ))
+                    )
                   : Icon(
                       category!.icon, // Fallback to the icon
                       color: category!.color != null
@@ -111,16 +117,19 @@ class EditCategoryPageState extends State<EditCategoryPage> {
 
   Widget _getTextField() {
     return Expanded(
-        child: Form(
-      key: _formKey,
-      child: Container(
-        margin: EdgeInsets.all(10),
-        child: TextFormField(
-            onChanged: (text) {
-              setState(() {
-                categoryName = text;
-              });
-            },
+      child: Form(
+        key: _formKey,
+        child: Container(
+          margin: EdgeInsets.all(10),
+          child: TextFormField(
+            enabled: !_isSystemCategory,
+            onChanged: _isSystemCategory
+                ? null
+                : (text) {
+                    setState(() {
+                      categoryName = text;
+                    });
+                  },
             validator: (value) {
               if (value!.isEmpty) {
                 return "Please enter the category name".i18n;
@@ -129,32 +138,38 @@ class EditCategoryPageState extends State<EditCategoryPage> {
             },
             initialValue: categoryName,
             style: TextStyle(
-                fontSize: 22.0, color: Theme.of(context).colorScheme.onSurface),
+              fontSize: 22.0,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
             decoration: InputDecoration(
               hintText: "Category name".i18n,
-              errorStyle: TextStyle(
-                fontSize: 16.0,
-              ),
-            )),
+              errorStyle: TextStyle(fontSize: 16.0),
+            ),
+          ),
+        ),
       ),
-    ));
+    );
   }
 
   Widget _getAppBar() {
-    return AppBar(title: Text("Edit category".i18n), actions: <Widget>[
-      Visibility(
+    return AppBar(
+      backgroundColor: const Color(0xFFFFD400),
+      foregroundColor: const Color(0xFF252525),
+      title: Text(_isSystemCategory ? '系统分类' : "Edit category".i18n),
+      actions: <Widget>[
+        Visibility(
           visible: widget.passedCategory != null,
           child: IconButton(
             icon: widget.passedCategory == null
                 ? const Icon(Icons.archive)
                 : !(widget.passedCategory!.isArchived)
-                    ? const Icon(Icons.archive)
-                    : const Icon(Icons.unarchive),
+                ? const Icon(Icons.archive)
+                : const Icon(Icons.unarchive),
             tooltip: widget.passedCategory == null
                 ? ""
                 : !(widget.passedCategory!.isArchived)
-                    ? "Archive".i18n
-                    : "Unarchive".i18n,
+                ? "Archive".i18n
+                : "Unarchive".i18n,
             onPressed: () async {
               bool isCurrentlyArchived = widget.passedCategory!.isArchived;
 
@@ -163,79 +178,117 @@ class EditCategoryPageState extends State<EditCategoryPage> {
                   : "Do you really want to unarchive the category?".i18n;
 
               // Prompt confirmation
-              AlertDialogBuilder archiveDialog =
-                  AlertDialogBuilder(dialogMessage)
-                      .addTrueButtonName("Yes".i18n)
-                      .addFalseButtonName("No".i18n);
+              AlertDialogBuilder archiveDialog = AlertDialogBuilder(
+                dialogMessage,
+              ).addTrueButtonName("Yes".i18n).addFalseButtonName("No".i18n);
 
               if (!isCurrentlyArchived) {
                 archiveDialog.addSubtitle(
-                    "Archiving the category you will NOT remove the associated records"
-                        .i18n);
+                  "Archiving the category you will NOT remove the associated records"
+                      .i18n,
+                );
               }
 
               var continueArchivingAction = await showDialog(
-                  context: context,
-                  builder: (BuildContext context) {
-                    return archiveDialog.build(context);
-                  });
+                context: context,
+                builder: (BuildContext context) {
+                  return archiveDialog.build(context);
+                },
+              );
 
               if (continueArchivingAction) {
-                await database.archiveCategory(widget.passedCategory!.name!,
-                    widget.passedCategory!.categoryType!, !isCurrentlyArchived);
-                Navigator.pop(context);
+                try {
+                  await database.archiveCategory(
+                    widget.passedCategory!.name!,
+                    widget.passedCategory!.categoryType!,
+                    !isCurrentlyArchived,
+                  );
+                  if (context.mounted) Navigator.pop(context);
+                } on LegacyCategoryHiddenException {
+                  if (!context.mounted) return;
+                  await showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('保留的旧分类'),
+                      content: const Text('该旧默认分类仅用于显示历史账单，不能重新用于新增账单。'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('知道了'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
               }
             },
-          )),
-      Visibility(
-        visible: widget.passedCategory != null,
-        child: PopupMenuButton<int>(
-          icon: Icon(Icons.more_vert),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(
-              Radius.circular(10.0),
-            ),
           ),
-          onSelected: (index) async {
-            if (index == 1) {
-              // Prompt confirmation
-              AlertDialogBuilder deleteDialog = AlertDialogBuilder(
-                      "Do you really want to delete the category?".i18n)
-                  .addSubtitle(
-                      "Deleting the category you will remove all the associated records"
-                          .i18n)
-                  .addTrueButtonName("Yes".i18n)
-                  .addFalseButtonName("No".i18n);
+        ),
+        Visibility(
+          visible: widget.passedCategory != null && !_isSystemCategory,
+          child: PopupMenuButton<int>(
+            icon: Icon(Icons.more_vert),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(10.0)),
+            ),
+            onSelected: (index) async {
+              if (index == 1) {
+                // Prompt confirmation
+                AlertDialogBuilder deleteDialog =
+                    AlertDialogBuilder(
+                          "Do you really want to delete the category?".i18n,
+                        )
+                        .addSubtitle('删除仅限没有账单或周期账单引用的自定义分类；已使用分类请改为归档。')
+                        .addTrueButtonName("Yes".i18n)
+                        .addFalseButtonName("No".i18n);
 
-              var continueDelete = await showDialog(
+                var continueDelete = await showDialog(
                   context: context,
                   builder: (BuildContext context) {
                     return deleteDialog.build(context);
-                  });
+                  },
+                );
 
-              if (continueDelete) {
-                database.deleteCategory(widget.passedCategory!.name,
-                    widget.passedCategory!.categoryType);
-                Navigator.pop(context);
+                if (continueDelete) {
+                  try {
+                    await database.deleteCategory(
+                      widget.passedCategory!.name,
+                      widget.passedCategory!.categoryType,
+                    );
+                    if (context.mounted) Navigator.pop(context);
+                  } on CategoryInUseException {
+                    if (!context.mounted) return;
+                    await showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('无法删除分类'),
+                        content: const Text('该分类已有账单或周期账单引用。历史数据会保留，请改为归档。'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('知道了'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                }
               }
-            }
-          },
-          itemBuilder: (BuildContext context) {
-            var deleteStr = "Delete".i18n;
-            return {deleteStr: 1}.entries.map((entry) {
-              return PopupMenuItem<int>(
-                padding: EdgeInsets.all(20),
-                value: entry.value,
-                child: Text(entry.key,
-                    style: TextStyle(
-                      fontSize: 16,
-                    )),
-              );
-            }).toList();
-          },
+            },
+            itemBuilder: (BuildContext context) {
+              var deleteStr = "Delete".i18n;
+              return {deleteStr: 1}.entries.map((entry) {
+                return PopupMenuItem<int>(
+                  padding: EdgeInsets.all(20),
+                  value: entry.value,
+                  child: Text(entry.key, style: TextStyle(fontSize: 16)),
+                );
+              }).toList();
+            },
+          ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
   Widget _getIconColorPickerSection() {
@@ -256,25 +309,25 @@ class EditCategoryPageState extends State<EditCategoryPage> {
 
   Widget _getPreviewAndTitleCard() {
     return Container(
-        child: Column(
-      children: [
-        _getPageSeparatorLabel("Name".i18n),
-        Divider(
-          thickness: 0.5,
-        ),
-        Container(
-          child: Row(
-            children: <Widget>[
-              Container(child: _createCategoryCirclePreview()),
-              Container(child: _getTextField()),
-            ],
+      child: Column(
+        children: [
+          _getPageSeparatorLabel("Name".i18n),
+          Divider(thickness: 0.5),
+          Container(
+            child: Row(
+              children: <Widget>[
+                Container(child: _createCategoryCirclePreview()),
+                Container(child: _getTextField()),
+              ],
+            ),
           ),
-        ),
-      ],
-    ));
+        ],
+      ),
+    );
   }
 
   saveCategory() async {
+    if (_isSystemCategory) return;
     if (_formKey.currentState!.validate()) {
       if (category!.name == null) {
         // Then it is a newly created category
@@ -303,17 +356,24 @@ class EditCategoryPageState extends State<EditCategoryPage> {
         child: Column(
           children: <Widget>[
             _getPreviewAndTitleCard(),
-            _getIconColorPickerSection(),
+            if (!_isSystemCategory) _getIconColorPickerSection(),
+            if (_isSystemCategory)
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Text('系统分类由应用维护，可归档以在新增账单时隐藏。'),
+              ),
             SizedBox(height: 75),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: null,
-        onPressed: saveCategory,
-        tooltip: 'Add a new category'.i18n,
-        child: const Icon(Icons.save),
-      ),
+      floatingActionButton: _isSystemCategory
+          ? null
+          : FloatingActionButton(
+              heroTag: null,
+              onPressed: saveCategory,
+              tooltip: 'Add a new category'.i18n,
+              child: const Icon(Icons.save),
+            ),
     );
   }
 }

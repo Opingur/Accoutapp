@@ -1,9 +1,9 @@
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:piggybank/i18n.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../models/category-type.dart';
 import '../../models/category.dart';
+import '../../models/system-categories.dart';
 import '../logger.dart';
 
 class SqliteMigrationService {
@@ -20,6 +20,7 @@ class SqliteMigrationService {
             last_used INTEGER,
             record_count INTEGER DEFAULT 0,
             is_archived INTEGER DEFAULT 0,
+            is_system INTEGER NOT NULL DEFAULT 0,
             sort_order INTEGER DEFAULT 0,
             icon_emoji TEXT,
             PRIMARY KEY (name, category_type)
@@ -226,35 +227,88 @@ class SqliteMigrationService {
 
   // Default Data
   static List<Category> getDefaultCategories() {
-    List<Category> defaultCategories = <Category>[];
-    defaultCategories.add(new Category("House".i18n,
-        color: Category.colors[0],
-        iconCodePoint: FontAwesomeIcons.house.codePoint,
-        categoryType: CategoryType.expense));
-    defaultCategories.add(new Category("Transport".i18n,
-        color: Category.colors[1],
-        iconCodePoint: FontAwesomeIcons.bus.codePoint,
-        categoryType: CategoryType.expense));
-    defaultCategories.add(new Category("Food".i18n,
-        color: Category.colors[2],
-        iconCodePoint: FontAwesomeIcons.burger.codePoint,
-        categoryType: CategoryType.expense));
-    defaultCategories.add(new Category("Salary".i18n,
-        color: Category.colors[3],
-        iconCodePoint: FontAwesomeIcons.wallet.codePoint,
-        categoryType: CategoryType.income));
-    return defaultCategories;
+    return SystemCategories.all;
+  }
+
+  /// Inserts or promotes the canonical system categories without touching
+  /// their associated records. The compound primary key makes this safe to
+  /// call again after an interrupted migration or app restart.
+  static Future<void> ensureSystemCategories(Database db) async {
+    for (final category in SystemCategories.all) {
+      final map = category.toMap();
+      await db.insert(
+        'categories',
+        map,
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+
+      // Exact-name legacy/custom rows are reused rather than duplicated.
+      // Usage counters and timestamps are deliberately preserved.
+      await db.update(
+        'categories',
+        {
+          'color': map['color'],
+          'icon': map['icon'],
+          'icon_emoji': map['icon_emoji'],
+          'is_archived': 0,
+          'is_system': 1,
+          'sort_order': map['sort_order'],
+        },
+        where: 'name = ? AND category_type = ?',
+        whereArgs: [category.name, category.categoryType!.index],
+      );
+    }
+  }
+
+  static Future<void> _archiveLegacyDefaultCategories(Database db) async {
+    final legacyDefaults = <(String, CategoryType)>[
+      ('House', CategoryType.expense),
+      ('Transport', CategoryType.expense),
+      ('Food', CategoryType.expense),
+      ('Salary', CategoryType.income),
+    ];
+
+    for (final (rawName, type) in legacyDefaults) {
+      final names = <String>{rawName, rawName.i18n};
+      for (final name in names) {
+        await db.update(
+          'categories',
+          {'is_archived': 1, 'is_system': 0},
+          where: 'name = ? AND category_type = ?',
+          whereArgs: [name, type.index],
+        );
+      }
+    }
+  }
+
+  /// Legacy defaults are retained only to resolve historical records. They
+  /// cannot be made selectable for new records again.
+  static bool isLegacyDefaultCategory(String categoryName, CategoryType type) {
+    final legacyDefaults = <(String, CategoryType)>[
+      ('House', CategoryType.expense),
+      ('Transport', CategoryType.expense),
+      ('Food', CategoryType.expense),
+      ('Salary', CategoryType.income),
+    ];
+    return legacyDefaults.any(
+      (entry) =>
+          entry.$2 == type &&
+          (entry.$1 == categoryName || entry.$1.i18n == categoryName),
+    );
   }
 
   static Future<void> safeAlterTable(
-      Database db, String alterTableQuery) async {
+    Database db,
+    String alterTableQuery,
+  ) async {
     try {
       await db.execute(alterTableQuery);
       _logger.debug('Alter table succeeded');
     } on DatabaseException catch (e) {
       // This block specifically handles DatabaseException
       _logger.warning(
-          'Alter table failed (expected for existing columns): ${e.toString()}');
+        'Alter table failed (expected for existing columns): ${e.toString()}',
+      );
     } catch (e, st) {
       // This block is a generic catch-all for any other exception types
       _logger.handle(e, st, 'Unexpected error in alter table');
@@ -278,9 +332,13 @@ class SqliteMigrationService {
   static void _migrateTo7(Database db) async {
     safeAlterTable(db, "ALTER TABLE categories ADD COLUMN last_used INTEGER;");
     safeAlterTable(
-        db, "ALTER TABLE categories ADD COLUMN is_archived INTEGER DEFAULT 0;");
-    safeAlterTable(db,
-        "ALTER TABLE categories ADD COLUMN record_count INTEGER DEFAULT 0;");
+      db,
+      "ALTER TABLE categories ADD COLUMN is_archived INTEGER DEFAULT 0;",
+    );
+    safeAlterTable(
+      db,
+      "ALTER TABLE categories ADD COLUMN record_count INTEGER DEFAULT 0;",
+    );
 
     var batch = db.batch();
     try {
@@ -322,7 +380,9 @@ class SqliteMigrationService {
 
   static void _migrateTo8(Database db) async {
     safeAlterTable(
-        db, "ALTER TABLE categories ADD COLUMN sort_order INTEGER DEFAULT 0;");
+      db,
+      "ALTER TABLE categories ADD COLUMN sort_order INTEGER DEFAULT 0;",
+    );
   }
 
   static void _migrateTo9(Database db) async {
@@ -333,7 +393,9 @@ class SqliteMigrationService {
     // Schema migration
     await safeAlterTable(db, "ALTER TABLE records ADD COLUMN timezone TEXT;");
     await safeAlterTable(
-        db, "ALTER TABLE recurrent_record_patterns ADD COLUMN timezone TEXT;");
+      db,
+      "ALTER TABLE recurrent_record_patterns ADD COLUMN timezone TEXT;",
+    );
   }
 
   static void skip(Database db) async {
@@ -352,7 +414,9 @@ class SqliteMigrationService {
 
     // Add tags to recurrent_record_patterns
     await safeAlterTable(
-        db, "ALTER TABLE recurrent_record_patterns ADD COLUMN tags TEXT;");
+      db,
+      "ALTER TABLE recurrent_record_patterns ADD COLUMN tags TEXT;",
+    );
 
     // Add trigger to delete associated tags when a record is deleted
     String deleteRecordTagsTriggerQuery = """
@@ -403,8 +467,10 @@ class SqliteMigrationService {
 
   static Future<void> _migrateTo17(Database db) async {
     // Add end_date column to recurrent_record_patterns
-    await safeAlterTable(db,
-        "ALTER TABLE recurrent_record_patterns ADD COLUMN end_date INTEGER;");
+    await safeAlterTable(
+      db,
+      "ALTER TABLE recurrent_record_patterns ADD COLUMN end_date INTEGER;",
+    );
   }
 
   static Future<void> _migrateTo18(Database db) async {
@@ -415,7 +481,9 @@ class SqliteMigrationService {
 
     // Step 2: Add wallet_id column to records
     await safeAlterTable(
-        db, "ALTER TABLE records ADD COLUMN wallet_id INTEGER;");
+      db,
+      "ALTER TABLE records ADD COLUMN wallet_id INTEGER;",
+    );
 
     // Step 3: Insert default wallet and get its id
     int defaultWalletId = await db.rawInsert(
@@ -424,22 +492,25 @@ class SqliteMigrationService {
     );
 
     // Step 4: Backfill all existing records with the default wallet id
-    await db.rawUpdate(
-      "UPDATE records SET wallet_id = ?",
-      [defaultWalletId],
-    );
+    await db.rawUpdate("UPDATE records SET wallet_id = ?", [defaultWalletId]);
   }
 
   static Future<void> _migrateTo19(Database db) async {
     await safeAlterTable(
-        db, "ALTER TABLE records ADD COLUMN transfer_wallet_id INTEGER;");
+      db,
+      "ALTER TABLE records ADD COLUMN transfer_wallet_id INTEGER;",
+    );
   }
 
   static Future<void> _migrateTo20(Database db) async {
-    await safeAlterTable(db,
-        "ALTER TABLE recurrent_record_patterns ADD COLUMN wallet_id INTEGER;");
-    await safeAlterTable(db,
-        "ALTER TABLE recurrent_record_patterns ADD COLUMN transfer_wallet_id INTEGER;");
+    await safeAlterTable(
+      db,
+      "ALTER TABLE recurrent_record_patterns ADD COLUMN wallet_id INTEGER;",
+    );
+    await safeAlterTable(
+      db,
+      "ALTER TABLE recurrent_record_patterns ADD COLUMN transfer_wallet_id INTEGER;",
+    );
     // Backfill existing patterns with the default wallet (created in v18)
     await _backfillPatternsWithDefaultWallet(db);
   }
@@ -455,31 +526,40 @@ class SqliteMigrationService {
   }
 
   static Future<void> _backfillPatternsWithDefaultWallet(Database db) async {
-    final rows = await db
-        .rawQuery("SELECT id FROM wallets WHERE is_default = 1 LIMIT 1");
+    final rows = await db.rawQuery(
+      "SELECT id FROM wallets WHERE is_default = 1 LIMIT 1",
+    );
     if (rows.isEmpty) return;
     final defaultWalletId = rows.first['id'] as int;
     await db.rawUpdate(
-        "UPDATE recurrent_record_patterns SET wallet_id = ? WHERE wallet_id IS NULL",
-        [defaultWalletId]);
+      "UPDATE recurrent_record_patterns SET wallet_id = ? WHERE wallet_id IS NULL",
+      [defaultWalletId],
+    );
   }
 
   static Future<void> _migrateTo24(Database db) async {
     await safeAlterTable(
-        db, "ALTER TABLE records ADD COLUMN transfer_value REAL;");
-    await safeAlterTable(db,
-        "ALTER TABLE recurrent_record_patterns ADD COLUMN transfer_value REAL;");
+      db,
+      "ALTER TABLE records ADD COLUMN transfer_value REAL;",
+    );
+    await safeAlterTable(
+      db,
+      "ALTER TABLE recurrent_record_patterns ADD COLUMN transfer_value REAL;",
+    );
   }
 
   static Future<void> _migrateTo25(Database db) async {
     // Step 1: Add is_predefined column (existing databases don't have it yet)
     await safeAlterTable(
-        db, "ALTER TABLE wallets ADD COLUMN is_predefined INTEGER DEFAULT 0;");
+      db,
+      "ALTER TABLE wallets ADD COLUMN is_predefined INTEGER DEFAULT 0;",
+    );
     // Step 2: Reset all wallets to no default or predefined
     await db.rawUpdate("UPDATE wallets SET is_default = 0, is_predefined = 0");
     // Step 3: Mark 'Default Wallet' as both system default and predefined
     await db.rawUpdate(
-        "UPDATE wallets SET is_default = 1, is_predefined = 1 WHERE name = 'Default Wallet'");
+      "UPDATE wallets SET is_default = 1, is_predefined = 1 WHERE name = 'Default Wallet'",
+    );
   }
 
   static Future<void> _migrateTo26(Database db) async {
@@ -490,22 +570,29 @@ class SqliteMigrationService {
 
     // Find the original Default Wallet by name or fallback to oldest wallet
     final localizedDefault = "Default Wallet".i18n;
-    var defaultWalletId = Sqflite.firstIntValue(await db.rawQuery(
-        "SELECT id FROM wallets WHERE name = ?", [localizedDefault]));
-    defaultWalletId ??= Sqflite.firstIntValue(await db.rawQuery(
-        "SELECT id FROM wallets WHERE name = 'Default Wallet'"));
-    defaultWalletId ??= Sqflite.firstIntValue(await db.rawQuery(
-        "SELECT id FROM wallets ORDER BY id ASC LIMIT 1"));
+    var defaultWalletId = Sqflite.firstIntValue(
+      await db.rawQuery("SELECT id FROM wallets WHERE name = ?", [
+        localizedDefault,
+      ]),
+    );
+    defaultWalletId ??= Sqflite.firstIntValue(
+      await db.rawQuery("SELECT id FROM wallets WHERE name = 'Default Wallet'"),
+    );
+    defaultWalletId ??= Sqflite.firstIntValue(
+      await db.rawQuery("SELECT id FROM wallets ORDER BY id ASC LIMIT 1"),
+    );
 
     // Reset is_default on all wallets, then set the correct one
     await db.rawUpdate("UPDATE wallets SET is_default = 0");
     if (defaultWalletId != null) {
-      await db.rawUpdate(
-          "UPDATE wallets SET is_default = 1 WHERE id = ?", [defaultWalletId]);
+      await db.rawUpdate("UPDATE wallets SET is_default = 1 WHERE id = ?", [
+        defaultWalletId,
+      ]);
     }
 
     _logger.info(
-        'Migration v26: restored is_default to wallet ID $defaultWalletId');
+      'Migration v26: restored is_default to wallet ID $defaultWalletId',
+    );
   }
 
   static Future<void> _migrateTo23(Database db) async {
@@ -525,16 +612,23 @@ class SqliteMigrationService {
 
     // Step 4: Add profile_id column to the three profile-scoped tables
     await safeAlterTable(
-        db, "ALTER TABLE records ADD COLUMN profile_id INTEGER;");
-    await safeAlterTable(db,
-        "ALTER TABLE recurrent_record_patterns ADD COLUMN profile_id INTEGER;");
+      db,
+      "ALTER TABLE records ADD COLUMN profile_id INTEGER;",
+    );
     await safeAlterTable(
-        db, "ALTER TABLE wallets ADD COLUMN profile_id INTEGER;");
+      db,
+      "ALTER TABLE recurrent_record_patterns ADD COLUMN profile_id INTEGER;",
+    );
+    await safeAlterTable(
+      db,
+      "ALTER TABLE wallets ADD COLUMN profile_id INTEGER;",
+    );
 
     // Step 5: Backfill all existing rows with the Default Profile id
     await db.rawUpdate("UPDATE records SET profile_id = ?", [defaultProfileId]);
-    await db.rawUpdate("UPDATE recurrent_record_patterns SET profile_id = ?",
-        [defaultProfileId]);
+    await db.rawUpdate("UPDATE recurrent_record_patterns SET profile_id = ?", [
+      defaultProfileId,
+    ]);
     await db.rawUpdate("UPDATE wallets SET profile_id = ?", [defaultProfileId]);
   }
 
@@ -543,27 +637,36 @@ class SqliteMigrationService {
     // to the default profile. These rows were created with a bug that skipped
     // setting profile_id even after the profiles migration had already run.
     final defaultProfileId = Sqflite.firstIntValue(
-        await db.rawQuery("SELECT id FROM profiles WHERE is_default = 1"));
+      await db.rawQuery("SELECT id FROM profiles WHERE is_default = 1"),
+    );
     if (defaultProfileId != null) {
       await db.rawUpdate(
-          "UPDATE records SET profile_id = ? WHERE profile_id IS NULL",
-          [defaultProfileId]);
+        "UPDATE records SET profile_id = ? WHERE profile_id IS NULL",
+        [defaultProfileId],
+      );
       await db.rawUpdate(
-          "UPDATE recurrent_record_patterns SET profile_id = ? WHERE profile_id IS NULL",
-          [defaultProfileId]);
+        "UPDATE recurrent_record_patterns SET profile_id = ? WHERE profile_id IS NULL",
+        [defaultProfileId],
+      );
       await db.rawUpdate(
-          "UPDATE wallets SET profile_id = ? WHERE profile_id IS NULL",
-          [defaultProfileId]);
+        "UPDATE wallets SET profile_id = ? WHERE profile_id IS NULL",
+        [defaultProfileId],
+      );
       _logger.info(
-          'Migration v27: assigned orphaned rows to default profile $defaultProfileId');
+        'Migration v27: assigned orphaned rows to default profile $defaultProfileId',
+      );
     }
   }
 
   static Future<void> _migrateTo28(Database db) async {
-    await safeAlterTable(db,
-        "ALTER TABLE recurrent_record_patterns ADD COLUMN custom_interval_value INTEGER;");
-    await safeAlterTable(db,
-        "ALTER TABLE recurrent_record_patterns ADD COLUMN custom_interval_unit INTEGER;");
+    await safeAlterTable(
+      db,
+      "ALTER TABLE recurrent_record_patterns ADD COLUMN custom_interval_value INTEGER;",
+    );
+    await safeAlterTable(
+      db,
+      "ALTER TABLE recurrent_record_patterns ADD COLUMN custom_interval_unit INTEGER;",
+    );
   }
 
   static Future<void> _migrateTo29(Database db) async {
@@ -574,17 +677,32 @@ class SqliteMigrationService {
 
   static Future<void> _migrateTo30(Database db) async {
     await safeAlterTable(
-        db, "ALTER TABLE budgets ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0;");
+      db,
+      "ALTER TABLE budgets ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0;",
+    );
   }
 
   static Future<void> _migrateTo31(Database db) async {
     await safeAlterTable(
-        db, "ALTER TABLE budgets ADD COLUMN wallet_ids TEXT NOT NULL DEFAULT '[]';");
+      db,
+      "ALTER TABLE budgets ADD COLUMN wallet_ids TEXT NOT NULL DEFAULT '[]';",
+    );
   }
 
   static Future<void> _migrateTo32(Database db) async {
     await safeAlterTable(
-        db, "ALTER TABLE profiles ADD COLUMN sort_order INTEGER DEFAULT 0;");
+      db,
+      "ALTER TABLE profiles ADD COLUMN sort_order INTEGER DEFAULT 0;",
+    );
+  }
+
+  static Future<void> _migrateTo33(Database db) async {
+    await safeAlterTable(
+      db,
+      'ALTER TABLE categories ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0;',
+    );
+    await _archiveLegacyDefaultCategories(db);
+    await ensureSystemCategories(db);
   }
 
   static Map<int, Function(Database)?> migrationFunctions = {
@@ -614,11 +732,15 @@ class SqliteMigrationService {
     30: SqliteMigrationService._migrateTo30,
     31: SqliteMigrationService._migrateTo31,
     32: SqliteMigrationService._migrateTo32,
+    33: SqliteMigrationService._migrateTo33,
   };
 
   // Public Methods
   static Future<void> onUpgrade(
-      Database db, int oldVersion, int newVersion) async {
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
     _logger.info('Upgrading database from version $oldVersion to $newVersion');
     for (int i = oldVersion + 1; i <= newVersion; i++) {
       if (migrationFunctions.containsKey(i)) {

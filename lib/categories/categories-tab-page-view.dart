@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:piggybank/categories/categories-tab-page-edit.dart';
 import 'package:piggybank/models/category-type.dart';
 import 'package:piggybank/models/category.dart';
 import 'package:piggybank/models/wallet.dart';
@@ -6,27 +7,21 @@ import 'package:piggybank/records/edit-record-page.dart';
 import 'package:piggybank/records/components/transfer_wallet_selector.dart';
 import 'package:piggybank/services/database/database-interface.dart';
 import 'package:piggybank/services/service-config.dart';
-import 'package:piggybank/settings/constants/preferences-keys.dart';
-import 'package:piggybank/settings/preferences-utils.dart';
-import 'package:piggybank/i18n.dart';
 
 import 'categories-grid.dart';
-import 'package:piggybank/categories/category-sort-option.dart';
+import 'category-ordering.dart';
 
 class CategoryTabPageView extends StatefulWidget {
+  const CategoryTabPageView({
+    super.key,
+    this.goToEditMovementPage,
+    this.initialTabIndex = 0,
+    this.initialDate,
+  });
+
   final bool? goToEditMovementPage;
   final int initialTabIndex;
-
-  /// Pre-selected record date carried through the add flow (e.g. from
-  /// tapping a day header). Null means "today".
   final DateTime? initialDate;
-
-  CategoryTabPageView(
-      {this.goToEditMovementPage,
-      this.initialTabIndex = 0,
-      this.initialDate,
-      Key? key})
-      : super(key: key);
 
   @override
   CategoryTabPageViewState createState() => CategoryTabPageViewState();
@@ -34,283 +29,32 @@ class CategoryTabPageView extends StatefulWidget {
 
 class CategoryTabPageViewState extends State<CategoryTabPageView> {
   List<Category?>? _categories;
-  CategoryType? categoryType;
-  SortOption _selectedSortOption = SortOption.original;
-  SortOption _storedDefaultOption = SortOption.original;
-  bool _isDefaultOrder = false;
-  DatabaseInterface database = ServiceConfig.database;
+  final DatabaseInterface database = ServiceConfig.database;
 
   @override
   void initState() {
     super.initState();
-    _fetchCategories().then((_) {
-      _initializeSortPreference();
-    });
+    _fetchCategories();
   }
 
   Future<void> _fetchCategories() async {
-    List<Category?> categories = await database.getAllCategories();
-    categories = categories.where((element) => !element!.isArchived).toList();
-    categories.sort((a, b) => a!.sortOrder!.compareTo(b!.sortOrder!));
-    setState(() {
-      _categories = categories;
-    });
-  }
-
-  // Load the user's preferred sorting order from shared preferences
-  Future<void> _initializeSortPreference() async {
-    _selectedSortOption = SortOption.original;
-    String key = 'defaultCategorySortOption';
-    if (ServiceConfig.sharedPreferences!.containsKey(key)) {
-      final savedSortIndex = ServiceConfig.sharedPreferences?.getInt(key);
-      if (savedSortIndex != null) {
-        setState(() {
-          _storedDefaultOption = SortOption.values[savedSortIndex];
-          _selectedSortOption = SortOption.values[savedSortIndex];
-        });
-        _applySort(_selectedSortOption);
-      }
-    }
-  }
-
-  // Store the user's selected sort option in shared preferences
-  Future<void> storeOnUserPreferences() async {
-    if (_isDefaultOrder) {
-      await ServiceConfig.sharedPreferences
-          ?.setInt('defaultCategorySortOption', _selectedSortOption.index);
-      setState(() {
-        _storedDefaultOption = _selectedSortOption;
-      });
-    }
-    _isDefaultOrder = false;
-  }
-
-  // Apply the sort based on the selected option
-  void _applySort(SortOption sortOption) {
-    switch (sortOption) {
-      case SortOption.lastUsed:
-        _sortByLastUsed();
-        break;
-      case SortOption.mostUsed:
-        _sortByMostUsed();
-        break;
-      case SortOption.original:
-        _fetchCategories();
-        break;
-      case SortOption.alphabetical:
-        _sortAlphabetically();
-        break;
-    }
-  }
-
-  void _showSortOptions() {
-    SortOption pendingOption = _selectedSortOption;
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding:
-                      const EdgeInsets.only(left: 16.0, top: 16, right: 16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Order by".i18n,
-                        style: TextStyle(
-                          fontSize: 22,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: _isDefaultOrder ||
-                                pendingOption == _storedDefaultOption,
-                            onChanged: (value) {
-                              setModalState(() {
-                                _isDefaultOrder = value ?? false;
-                              });
-                            },
-                          ),
-                          Text("Make it default".i18n),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(),
-                ListTile(
-                  leading: Icon(Icons.update),
-                  title: Text(
-                    "Last Used".i18n,
-                    style: TextStyle(
-                      color: pendingOption == SortOption.lastUsed
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                  ),
-                  trailing: pendingOption == SortOption.lastUsed
-                      ? Icon(Icons.check,
-                          color: Theme.of(context).colorScheme.primary)
-                      : null,
-                  onTap: () {
-                    setModalState(() {
-                      pendingOption = SortOption.lastUsed;
-                    });
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.abc),
-                  title: Text(
-                    "Name (Alphabetically)".i18n,
-                    style: TextStyle(
-                      color: pendingOption == SortOption.alphabetical
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                  ),
-                  trailing: pendingOption == SortOption.alphabetical
-                      ? Icon(Icons.check,
-                          color: Theme.of(context).colorScheme.primary)
-                      : null,
-                  onTap: () {
-                    setModalState(() {
-                      pendingOption = SortOption.alphabetical;
-                    });
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.trending_up),
-                  title: Text(
-                    "Most Used".i18n,
-                    style: TextStyle(
-                      color: pendingOption == SortOption.mostUsed
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                  ),
-                  trailing: pendingOption == SortOption.mostUsed
-                      ? Icon(Icons.check,
-                          color: Theme.of(context).colorScheme.primary)
-                      : null,
-                  onTap: () {
-                    setModalState(() {
-                      pendingOption = SortOption.mostUsed;
-                    });
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.reorder),
-                  title: Text(
-                    "Original Order".i18n,
-                    style: TextStyle(
-                      color: pendingOption == SortOption.original
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                  ),
-                  trailing: pendingOption == SortOption.original
-                      ? Icon(Icons.check,
-                          color: Theme.of(context).colorScheme.primary)
-                      : null,
-                  onTap: () {
-                    setModalState(() {
-                      pendingOption = SortOption.original;
-                    });
-                  },
-                ),
-                Divider(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 8.0),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _selectedSortOption = pendingOption;
-                        });
-                        _applySort(pendingOption);
-                        storeOnUserPreferences();
-                        Navigator.pop(context);
-                      },
-                      child: Text("Apply".i18n),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
+    final categories = await database.getAllCategories();
+    categories.removeWhere(
+      (category) => category == null || category.isArchived,
     );
+    sortCategoriesSystemFirst(categories);
+    if (mounted) setState(() => _categories = categories);
   }
 
-  void _sortByLastUsed() {
-    setState(() {
-      _selectedSortOption = SortOption.lastUsed;
-      _categories?.sort((a, b) {
-        final aLastUsed = a?.lastUsed;
-        final bLastUsed = b?.lastUsed;
+  /// Called by the records tab when returning from a record change.
+  Future<void> refreshCategories() => _fetchCategories();
 
-        if (aLastUsed == null && bLastUsed == null)
-          return 0; // keep original order
-        if (aLastUsed == null) return 1; // 'a' comes after 'b' if 'a' is null
-        if (bLastUsed == null) return -1; // 'a' comes before 'b' if 'b' is null
-
-        return bLastUsed
-            .compareTo(aLastUsed); // Regular comparison if both are non-null
-      });
-    });
-  }
-
-  void _sortByMostUsed() {
-    setState(() {
-      _selectedSortOption = SortOption.mostUsed;
-      _categories?.sort((a, b) => b!.recordCount!.compareTo(a!.recordCount!));
-    });
-  }
-
-  void _sortAlphabetically() {
-    setState(() {
-      _selectedSortOption = SortOption.alphabetical;
-      _categories?.sort((a, b) => a!.name!.compareTo(b!.name!));
-    });
-  }
-
-  refreshCategories() async {
-    await _initializeSortPreference();
+  Future<void> _openCategoryManagement() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => TabCategories()),
+    );
     await _fetchCategories();
-  }
-
-  Future<void> onCategoriesReorder(List<Category?> reorderedCategories) async {
-    if (reorderedCategories.isEmpty) {
-      return;
-    }
-
-    var categoryType = reorderedCategories.first!.categoryType;
-    var originalOrder = _categories!
-        .where((element) => element!.categoryType == categoryType)
-        .toList();
-
-    // Check if the order of the elements in `_categories` matches `reorderedCategories`
-    bool hasChanged = false;
-    for (int i = 0; i < reorderedCategories.length; i++) {
-      if (originalOrder[i]?.name != reorderedCategories[i]?.name) {
-        hasChanged = true;
-        break;
-      }
-    }
-
-    // If order has changed, update the database
-    if (hasChanged) {
-      await database.resetCategoryOrderIndexes(
-          reorderedCategories.whereType<Category>().toList());
-    }
   }
 
   void _openTransferEditPage(Wallet origin, Wallet destination) {
@@ -331,98 +75,77 @@ class CategoryTabPageViewState extends State<CategoryTabPageView> {
   Widget build(BuildContext context) {
     final showTransferTab =
         widget.goToEditMovementPage == true && ServiceConfig.walletsEnabled;
-    final bool _showCategoriesAtBottom = PreferencesUtils.getOrDefault<bool>(
-          ServiceConfig.sharedPreferences!,
-          PreferencesKeys.showCategoriesAtBottom) ??
-        false;
+    final tabCount = showTransferTab ? 3 : 2;
+    final initialIndex = widget.initialTabIndex.clamp(0, tabCount - 1).toInt();
+
     return DefaultTabController(
-      length: showTransferTab ? 3 : 2,
-      initialIndex: widget.initialTabIndex,
+      length: tabCount,
+      initialIndex: initialIndex,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(
-            (widget.goToEditMovementPage == true
-                    ? "Add a new record"
-                    : "Select the category")
-                .i18n,
-          ),
-          actions: [
-            Builder(
-              builder: (context) {
-                final tabController = DefaultTabController.of(context);
-                return AnimatedBuilder(
-                  animation: tabController,
-                  builder: (context, child) {
-                    final isTransferTab =
-                        showTransferTab && tabController.index == 2;
-                    return isTransferTab
-                        ? const SizedBox.shrink()
-                        : IconButton(
-                            icon: const Icon(Icons.sort),
-                            onPressed: _showSortOptions,
-                          );
-                  },
-                );
-              },
+          automaticallyImplyLeading: false,
+          backgroundColor: const Color(0xFFFFD400),
+          foregroundColor: const Color(0xFF252525),
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          toolbarHeight: 62,
+          titleSpacing: 10,
+          title: TabBar(
+            indicatorColor: const Color(0xFF252525),
+            indicatorWeight: 3,
+            labelColor: const Color(0xFF252525),
+            unselectedLabelColor: const Color(0xFF5F5424),
+            labelStyle: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
             ),
-          ],
-          bottom: TabBar(
             tabs: [
-              Semantics(
-                identifier: 'expenses-tab',
-                child: Tab(
-                    text: "Expenses".i18n.toUpperCase()
-                ),
-              ),
-              Semantics(
-                identifier: 'income-tab',
-                child: Tab(
-                  text: "Income".i18n.toUpperCase(),
-                ),
-              ),
-              if (showTransferTab)
-                Semantics(
-                  identifier: 'transfer-tab',
-                  child: Tab(
-                    text: "transfer_tab".i18n.toUpperCase(),
-                  ),
-                ),
+              const Tab(text: '支出'),
+              const Tab(text: '收入'),
+              if (showTransferTab) const Tab(text: '转账'),
             ],
           ),
-        ),
-        body: TabBarView(
-          children: [
-            _categories != null
-                ? CategoriesGrid(
-                    _categories!
-                        .where((element) =>
-                            element!.categoryType == CategoryType.expense)
-                        .toList(),
-                    goToEditMovementPage: widget.goToEditMovementPage,
-                    initialDate: widget.initialDate,
-                    enableManualSorting:
-                        _selectedSortOption == SortOption.original,
-                    onChangeOrder: onCategoriesReorder,
-                    alignToBottom: _showCategoriesAtBottom,
-                    )
-                : Container(),
-            _categories != null
-                ? CategoriesGrid(
-                    _categories!
-                        .where((element) =>
-                            element!.categoryType == CategoryType.income)
-                        .toList(),
-                    goToEditMovementPage: widget.goToEditMovementPage,
-                    initialDate: widget.initialDate,
-                    enableManualSorting:
-                        _selectedSortOption == SortOption.original,
-                    onChangeOrder: onCategoriesReorder,
-                    alignToBottom: _showCategoriesAtBottom)
-                : Container(),
-            if (showTransferTab)
-              TransferWalletSelector(onContinue: _openTransferEditPage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF252525),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              child: const Text('取消', style: TextStyle(fontSize: 16)),
+            ),
           ],
         ),
+        body: _categories == null
+            ? const Center(child: CircularProgressIndicator())
+            : TabBarView(
+                children: [
+                  CategoriesGrid(
+                    _categories!
+                        .where(
+                          (category) =>
+                              category!.categoryType == CategoryType.expense,
+                        )
+                        .toList(),
+                    goToEditMovementPage: widget.goToEditMovementPage,
+                    initialDate: widget.initialDate,
+                    onManageCategories: _openCategoryManagement,
+                  ),
+                  CategoriesGrid(
+                    _categories!
+                        .where(
+                          (category) =>
+                              category!.categoryType == CategoryType.income,
+                        )
+                        .toList(),
+                    goToEditMovementPage: widget.goToEditMovementPage,
+                    initialDate: widget.initialDate,
+                    onManageCategories: _openCategoryManagement,
+                  ),
+                  if (showTransferTab)
+                    TransferWalletSelector(onContinue: _openTransferEditPage),
+                ],
+              ),
       ),
     );
   }

@@ -1,190 +1,155 @@
 import 'package:flutter/material.dart';
 import 'package:piggybank/models/category.dart';
 import 'package:piggybank/records/edit-record-page.dart';
-import 'package:piggybank/i18n.dart';
-import 'package:reorderable_grid/reorderable_grid.dart';
 
-import '../components/category_icon_circle.dart';
+import 'category-ordering.dart';
 
-class CategoriesGrid extends StatefulWidget {
-  final List<Category?> categories;
-  final bool? goToEditMovementPage;
-  final bool enableManualSorting;
-  final Function(List<Category?>) onChangeOrder;
-  final bool alignToBottom;
-
-  /// Pre-selected record date forwarded to the edit page. Null means "today".
-  final DateTime? initialDate;
-
-  CategoriesGrid(
+class CategoriesGrid extends StatelessWidget {
+  const CategoriesGrid(
     this.categories, {
+    super.key,
     this.goToEditMovementPage,
-    required this.enableManualSorting,
-    required this.onChangeOrder,
-    this.alignToBottom = false,
     this.initialDate,
+    this.onManageCategories,
   });
 
-  @override
-  CategoriesGridState createState() => CategoriesGridState();
-}
+  final List<Category?> categories;
+  final bool? goToEditMovementPage;
+  final DateTime? initialDate;
+  final Future<void> Function()? onManageCategories;
 
-class CategoriesGridState extends State<CategoriesGrid> {
-  List<Category?> orderedCategories = [];
-  bool enableManualSorting = false;
-  late ScrollController _scrollController;
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController();
-    enableManualSorting = widget.enableManualSorting;
-    orderedCategories = List.from(
-      widget.categories,
-    ); // Initialize with a copy of the categories list
-  }
-
-  @override
-  void didUpdateWidget(covariant CategoriesGrid oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Check if the categories list has been updated and update orderedCategories accordingly
-    if (oldWidget.categories != widget.categories) {
-      setState(() {
-        orderedCategories = List.from(widget.categories);
-        enableManualSorting = widget.enableManualSorting;
-      });
-    }
-  }
-
-  /// Builds a single category item
-  Widget _buildCategory(Category category) {
-    return Container(
-      child: Center(
-        child: InkWell(
-          onTap: () async {
-            if (widget.goToEditMovementPage != null &&
-                widget.goToEditMovementPage!) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => EditRecordPage(
-                      passedCategory: category,
-                      initialDate: widget.initialDate),
-                ),
-              );
-            } else {
-              Navigator.pop(context, category);
-            }
-          },
-          child: Container(
-            child: Column(
-              children: [
-                CategoryIconCircle(
-                  iconEmoji: category.iconEmoji,
-                  iconDataFromDefaultIconSet: category.icon,
-                  backgroundColor: category.color,
-                ),
-                Flexible(
-                  child: Container(
-                    margin: EdgeInsets.fromLTRB(0, 10, 0, 0),
-                    child: Text(
-                      category.name!,
-                      maxLines: 2,
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+  Future<void> _selectCategory(BuildContext context, Category category) async {
+    if (goToEditMovementPage == true) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => EditRecordPage(
+            passedCategory: category,
+            initialDate: initialDate,
           ),
+        ),
+      );
+      return;
+    }
+    if (context.mounted) Navigator.pop(context, category);
+  }
+
+  Widget _categoryTile(BuildContext context, Category category) {
+    final iconColor = Theme.of(context).colorScheme.onSurface
+        .withValues(alpha: .75);
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => _selectCategory(context, category),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF3F3F3),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: category.iconEmoji != null
+                  ? Text(
+                      category.iconEmoji!,
+                      style: const TextStyle(fontSize: 21),
+                    )
+                  : Icon(category.icon, size: 21, color: iconColor),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              category.name ?? '',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, height: 1.15),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  /// Builds the grid of categories with reordering capability
-  Widget _buildCategories(BuildContext context) {
-    var size = MediaQuery.of(context).size;
-    final double itemHeight = 250;
-    final double itemWidth = size.width / 2;
-
-    final generatedChildren = List.generate(orderedCategories.length, (index) {
-      final category = orderedCategories[index];
-      return Container(
-        key: ValueKey(index.toString()), // Ensure each item has a unique key
-        child: _buildCategory(category!),
-      );
-    });
-
-    final grid = ReorderableGridView.extent(
-      controller: _scrollController,
-      onReorder: (int oldIndex, int newIndex) async {
-        setState(() {
-          final item = orderedCategories.removeAt(oldIndex);
-          orderedCategories.insert(newIndex, item);
-        });
-        await widget.onChangeOrder(orderedCategories);
-      },
-      itemDragEnable: (index) {
-        return enableManualSorting;
-      },
-      childAspectRatio: (itemWidth / itemHeight),
-      padding: EdgeInsets.only(top: 10),
-      crossAxisSpacing: 5.0,
-      mainAxisSpacing: 5.0,
-      maxCrossAxisExtent: size.width / 4,
-      shrinkWrap: widget.alignToBottom,
-      children: generatedChildren,
-    );
-
-    if (!widget.alignToBottom) {
-      return grid;
-    }
-
-    // When bottom-aligned, anchor the grid to the bottom so thumb-reachable.
-    // shrinkWrap lets the grid take only the space it needs, and the Column
-    // pushes it to the bottom of the available area. The outer scroll view
-    // still allows scrolling when there are many categories.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: constraints.maxHeight - 20,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [grid],
+  Widget _section(BuildContext context, String title, List<Category> items) {
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 4),
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurface
+                    .withValues(alpha: .55),
+              ),
             ),
           ),
-        );
-      },
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          sliver: SliverGrid(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => _categoryTile(context, items[index]),
+              childCount: items.length,
+            ),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              mainAxisExtent: 82,
+              crossAxisSpacing: 2,
+              mainAxisSpacing: 2,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.all(15),
-      child: widget.categories.isEmpty
-          ? Column(
-              children: <Widget>[
-                Image.asset('assets/images/no_entry_2.png', width: 200),
-                Text(
-                  "No categories yet.".i18n,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 22.0),
-                ),
-              ],
-            )
-          : _buildCategories(context),
+    final visible = categories.whereType<Category>().toList()
+      ..sort(compareCategoriesSystemFirst);
+    final system = visible.where((category) => category.isSystem).toList();
+    final custom = visible.where((category) => !category.isSystem).toList();
+
+    if (visible.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('暂无可用分类'),
+            if (onManageCategories != null)
+              TextButton.icon(
+                onPressed: onManageCategories,
+                icon: const Icon(Icons.settings_outlined, size: 18),
+                label: const Text('管理分类'),
+              ),
+          ],
+        ),
+      );
+    }
+
+    return CustomScrollView(
+      slivers: [
+        if (system.isNotEmpty) _section(context, '系统分类', system),
+        if (custom.isNotEmpty) _section(context, '我的分类', custom),
+        if (onManageCategories != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: TextButton.icon(
+                onPressed: onManageCategories,
+                icon: const Icon(Icons.settings_outlined, size: 18),
+                label: const Text('管理分类'),
+              ),
+            ),
+          ),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      ],
     );
   }
 }

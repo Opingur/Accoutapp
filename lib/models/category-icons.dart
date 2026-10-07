@@ -5,6 +5,7 @@ class CategoryIcons {
   static List<IconData> free_category_icons = [
     // Other
     FontAwesomeIcons.question.data,
+    FontAwesomeIcons.ellipsis.data,
     Icons.swap_horiz,
 
     // House
@@ -33,6 +34,8 @@ class CategoryIcons {
     // Shopping
     FontAwesomeIcons.cartShopping.data,
     FontAwesomeIcons.gift.data,
+    FontAwesomeIcons.briefcase.data,
+    FontAwesomeIcons.book.data,
     FontAwesomeIcons.socks.data,
     FontAwesomeIcons.receipt.data,
     FontAwesomeIcons.shirt.data,
@@ -48,6 +51,7 @@ class CategoryIcons {
     FontAwesomeIcons.handHoldingDollar.data,
     FontAwesomeIcons.circleDollarToSlot.data,
     FontAwesomeIcons.landmark.data,
+    FontAwesomeIcons.chartLine.data,
 
     // Entertainment
     FontAwesomeIcons.phone.data,
@@ -71,6 +75,7 @@ class CategoryIcons {
   static List<IconData> pro_category_icons = [
     // Other
     FontAwesomeIcons.question.data,
+    FontAwesomeIcons.ellipsis.data,
     Icons.swap_horiz,
 
     // House
@@ -143,6 +148,8 @@ class CategoryIcons {
     FontAwesomeIcons.receipt.data,
     FontAwesomeIcons.shirt.data,
     FontAwesomeIcons.graduationCap.data,
+    FontAwesomeIcons.briefcase.data,
+    FontAwesomeIcons.book.data,
 
     // Animal
     FontAwesomeIcons.cat.data,
@@ -163,6 +170,7 @@ class CategoryIcons {
     FontAwesomeIcons.handHoldingDollar.data,
     FontAwesomeIcons.circleDollarToSlot.data,
     FontAwesomeIcons.landmark.data,
+    FontAwesomeIcons.chartLine.data,
     FontAwesomeIcons.coins.data,
     FontAwesomeIcons.shieldHalved.data,
     FontAwesomeIcons.solidHandshake.data,

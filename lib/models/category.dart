@@ -33,18 +33,22 @@ class Category extends Model {
   int? recordCount;
   CategoryType? categoryType;
   bool isArchived;
+  bool isSystem;
   int? sortOrder; // New field to track the order of categories
 
   // Updated constructor to include the sortOrder field
-  Category(String? name,
-      {this.color,
-      this.iconCodePoint,
-      this.categoryType,
-      this.lastUsed,
-      this.recordCount,
-      this.iconEmoji,
-      this.isArchived = false,
-      this.sortOrder = 0}) {
+  Category(
+    String? name, {
+    this.color,
+    this.iconCodePoint,
+    this.categoryType,
+    this.lastUsed,
+    this.recordCount,
+    this.iconEmoji,
+    this.isArchived = false,
+    this.isSystem = false,
+    this.sortOrder = 0,
+  }) {
     // Initialize sortOrder in constructor
     this.name = name;
     var categoryIcons = CategoryIcons.pro_category_icons;
@@ -57,8 +61,9 @@ class Category extends Model {
         this.icon = FontAwesomeIcons.question.data;
         this.iconCodePoint = this.icon!.codePoint;
       } else {
-        this.icon =
-            categoryIcons.where((i) => i.codePoint == this.iconCodePoint).first;
+        this.icon = categoryIcons
+            .where((i) => i.codePoint == this.iconCodePoint)
+            .first;
       }
     }
 
@@ -76,6 +81,7 @@ class Category extends Model {
       'record_count': recordCount,
       'color': null,
       'is_archived': isArchived ? 1 : 0,
+      'is_system': isSystem ? 1 : 0,
       'icon_emoji': iconEmoji,
       'sort_order': sortOrder, // Add sortOrder to the map
     };
@@ -101,10 +107,16 @@ class Category extends Model {
     String? serializedColor = map["color"] as String?;
     Color? color;
     if (serializedColor != null) {
-      List<int> colorComponents =
-          serializedColor.split(":").map(int.parse).toList();
-      color = Color.fromARGB(colorComponents[0], colorComponents[1],
-          colorComponents[2], colorComponents[3]);
+      List<int> colorComponents = serializedColor
+          .split(":")
+          .map(int.parse)
+          .toList();
+      color = Color.fromARGB(
+        colorComponents[0],
+        colorComponents[1],
+        colorComponents[2],
+        colorComponents[3],
+      );
     }
 
     // Deserialize last_used
@@ -115,10 +127,15 @@ class Category extends Model {
     }
 
     // Deserialize other fields
-    bool isArchivedFromMap =
-        (map['is_archived'] != null) ? (map['is_archived'] as int) == 1 : false;
-    int recordCountFromMap =
-        (map['record_count'] != null) ? map['record_count'] as int : 0;
+    bool isArchivedFromMap = (map['is_archived'] != null)
+        ? (map['is_archived'] as int) == 1
+        : false;
+    bool isSystemFromMap = (map['is_system'] != null)
+        ? (map['is_system'] as int) == 1
+        : false;
+    int recordCountFromMap = (map['record_count'] != null)
+        ? map['record_count'] as int
+        : 0;
     String? iconEmojiFromMap = map['icon_emoji'] as String?;
     int? icon = map['icon'] as int?;
     int sortOrder = (map['sort_order'] != null) ? map['sort_order'] as int : 0;
@@ -133,6 +150,7 @@ class Category extends Model {
       recordCount: recordCountFromMap,
       iconEmoji: iconEmojiFromMap,
       isArchived: isArchivedFromMap,
+      isSystem: isSystemFromMap,
       sortOrder: sortOrder, // Initialize sortOrder
     );
   }
