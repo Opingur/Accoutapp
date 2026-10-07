@@ -112,8 +112,10 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
     final filteredRecords = _getFilteredRecords();
     // Determine common currency: if mixed, use default currency so all amounts are comparable
     final commonCurrency = _resolveCommonCurrency(filteredRecords);
-    final categoriesByType =
-        _aggregateCategoriesByType(filteredRecords, commonCurrency);
+    final categoriesByType = _aggregateCategoriesByType(
+      filteredRecords,
+      commonCurrency,
+    );
     final sectionCount = _countNonEmptySections(categoriesByType);
 
     String? viewAllCurrency;
@@ -123,15 +125,23 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
     if (widget.selectedDate != null) {
       final result = commonCurrency != null
           ? computeTotalInCurrency(
-              filteredRecords, widget.walletCurrencyMap, commonCurrency,
-              isAbsValue: false)
-          : computeConvertedTotal(filteredRecords, widget.walletCurrencyMap,
-              isAbsValue: false);
+              filteredRecords,
+              widget.walletCurrencyMap,
+              commonCurrency,
+              isAbsValue: false,
+            )
+          : computeConvertedTotal(
+              filteredRecords,
+              widget.walletCurrencyMap,
+              isAbsValue: false,
+            );
       totalAmount = result.total;
       viewAllCurrency = result.currency;
       final originalResult = computeConvertedTotal(
-          filteredRecords, widget.walletCurrencyMap,
-          isAbsValue: false);
+        filteredRecords,
+        widget.walletCurrencyMap,
+        isAbsValue: false,
+      );
       totalOriginalAmount = originalResult.total;
       viewAllOriginalCurrency = originalResult.currency;
     }
@@ -140,20 +150,21 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
       children: [
         if (widget.selectedDate != null)
           Container(
-              padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
-              child: Column(
-                children: [
-                  ViewAllSummaryRow(
-                    label: "All categories".i18n,
-                    totalAmount: totalAmount,
-                    onTapCallback: () => _navigateToAllCategories(),
-                    currency: viewAllCurrency,
-                    originalValue: totalOriginalAmount,
-                    originalCurrency: viewAllOriginalCurrency,
-                  ),
-                  Divider()
-                ],
-              )),
+            padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+            child: Column(
+              children: [
+                ViewAllSummaryRow(
+                  label: "All categories".i18n,
+                  totalAmount: totalAmount,
+                  onTapCallback: () => _navigateToAllCategories(),
+                  currency: viewAllCurrency,
+                  originalValue: totalOriginalAmount,
+                  originalCurrency: viewAllOriginalCurrency,
+                ),
+                Divider(),
+              ],
+            ),
+          ),
         if (categoriesByType[CategoryType.income]!.isNotEmpty)
           _buildCategoryTypeSection(
             title: "Income".i18n,
@@ -185,15 +196,26 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
     if (widget.selectedDate == null) return;
 
     final detailFrom = widget.selectedDate;
-    final detailTo =
-        getEndOfInterval(widget.selectedDate!, widget.aggregationMethod);
+    final detailTo = getEndOfInterval(
+      widget.selectedDate!,
+      widget.aggregationMethod,
+    );
 
     // Filter records by date range only (no category filter)
     // Use start of day for from and end of day for to to ensure inclusive range
-    final fromDate =
-        DateTime(detailFrom!.year, detailFrom.month, detailFrom.day);
-    final toDate =
-        DateTime(detailTo.year, detailTo.month, detailTo.day, 23, 59, 59);
+    final fromDate = DateTime(
+      detailFrom!.year,
+      detailFrom.month,
+      detailFrom.day,
+    );
+    final toDate = DateTime(
+      detailTo.year,
+      detailTo.month,
+      detailTo.day,
+      23,
+      59,
+      59,
+    );
     final detailRecords = widget.records.where((r) {
       final recordDate = r!.dateTime;
       return !recordDate.isBefore(fromDate) && !recordDate.isAfter(toDate);
@@ -215,7 +237,9 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
 
   /// Aggregates [records] by category type (Income/Expense).
   Map<CategoryType, List<CategorySumTuple>> _aggregateCategoriesByType(
-      List<Record?> records, String? commonCurrency) {
+    List<Record?> records,
+    String? commonCurrency,
+  ) {
     final categoriesByType = <CategoryType, List<CategorySumTuple>>{
       CategoryType.income: [],
       CategoryType.expense: [],
@@ -228,10 +252,12 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
     }
 
     // Sort by absolute value (descending)
-    categoriesByType[CategoryType.expense]!
-        .sort((a, b) => b.value.abs().compareTo(a.value.abs()));
-    categoriesByType[CategoryType.income]!
-        .sort((a, b) => b.value.abs().compareTo(a.value.abs()));
+    categoriesByType[CategoryType.expense]!.sort(
+      (a, b) => b.value.abs().compareTo(a.value.abs()),
+    );
+    categoriesByType[CategoryType.income]!.sort(
+      (a, b) => b.value.abs().compareTo(a.value.abs()),
+    );
 
     return categoriesByType;
   }
@@ -239,7 +265,9 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
   /// Aggregates records by category, computing currency-aware totals.
   /// When [commonCurrency] is set, all totals are expressed in that currency.
   Map<String, CategorySumTuple> _aggregateCategories(
-      List<Record?> records, String? commonCurrency) {
+    List<Record?> records,
+    String? commonCurrency,
+  ) {
     final categoryRecordsMap = <String, List<Record?>>{};
     final categoryRef = <String, Category>{};
 
@@ -255,14 +283,22 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
     for (var entry in categoryRecordsMap.entries) {
       final result = commonCurrency != null
           ? computeTotalInCurrency(
-              entry.value, widget.walletCurrencyMap, commonCurrency,
-              isAbsValue: false)
-          : computeConvertedTotal(entry.value, widget.walletCurrencyMap,
-              isAbsValue: false);
+              entry.value,
+              widget.walletCurrencyMap,
+              commonCurrency,
+              isAbsValue: false,
+            )
+          : computeConvertedTotal(
+              entry.value,
+              widget.walletCurrencyMap,
+              isAbsValue: false,
+            );
 
       final originalResult = computeConvertedTotal(
-          entry.value, widget.walletCurrencyMap,
-          isAbsValue: false);
+        entry.value,
+        widget.walletCurrencyMap,
+        isAbsValue: false,
+      );
 
       aggregatedCategories[entry.key] = CategorySumTuple(
         categoryRef[entry.key]!,
@@ -278,7 +314,8 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
 
   /// Counts how many sections have data.
   int _countNonEmptySections(
-      Map<CategoryType, List<CategorySumTuple>> categoriesByType) {
+    Map<CategoryType, List<CategorySumTuple>> categoriesByType,
+  ) {
     var count = 0;
     if (categoriesByType[CategoryType.income]!.isNotEmpty) count++;
     if (categoriesByType[CategoryType.expense]!.isNotEmpty) count++;
@@ -303,10 +340,13 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
     required bool hideHeaderOverride,
     required List<Record?> filteredRecords,
   }) {
-    final totalSum =
-        categories.fold<double>(0.0, (sum, cat) => sum + cat.value.abs());
-    final maxSum =
-        categories.isNotEmpty ? categories[0].value.abs().toDouble() : 0.0;
+    final totalSum = categories.fold<double>(
+      0.0,
+      (sum, cat) => sum + cat.value.abs(),
+    );
+    final maxSum = categories.isNotEmpty
+        ? categories[0].value.abs().toDouble()
+        : 0.0;
     final isExpanded = title == "Income".i18n ? _showIncome : _showExpenses;
 
     final categoriesOfThisType = categories.map((c) => c.key).toSet();
@@ -317,21 +357,32 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
     final defaultCurrency = getDefaultCurrency();
     final convertedResult = defaultCurrency != null
         ? computeTotalInCurrency(
-            sectionRecords, widget.walletCurrencyMap, defaultCurrency,
-            isAbsValue: true)
-        : computeConvertedTotal(sectionRecords, widget.walletCurrencyMap,
-            isAbsValue: true);
+            sectionRecords,
+            widget.walletCurrencyMap,
+            defaultCurrency,
+            isAbsValue: true,
+          )
+        : computeConvertedTotal(
+            sectionRecords,
+            widget.walletCurrencyMap,
+            isAbsValue: true,
+          );
     final breakdown = buildCurrencyBreakdown(
-        sectionRecords, widget.walletCurrencyMap,
-        isAbsValue: true);
-    final nonEmptyCurrencies =
-        breakdown.entries.where((e) => e.key.isNotEmpty).toList();
+      sectionRecords,
+      widget.walletCurrencyMap,
+      isAbsValue: true,
+    );
+    final nonEmptyCurrencies = breakdown.entries
+        .where((e) => e.key.isNotEmpty)
+        .toList();
     // Signed total drives the header color so expense sections render red
     // (the displayed amounts are absolute).
-    final signedSectionTotal =
-        computeConvertedTotal(sectionRecords, widget.walletCurrencyMap).total;
+    final signedSectionTotal = computeConvertedTotal(
+      sectionRecords,
+      widget.walletCurrencyMap,
+    ).total;
     final headerStyle = TextStyle(
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: FontWeight.bold,
       color: getAmountColor(signedSectionTotal, Theme.of(context).brightness),
     );
@@ -393,7 +444,7 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -401,12 +452,12 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
               children: [
                 Icon(
                   isExpanded ? Icons.expand_more : Icons.chevron_right,
-                  size: 18,
+                  size: 16,
                 ),
                 SizedBox(width: 4),
                 Text(
                   title,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -442,15 +493,23 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
       final recordsForTotal = _getFilteredRecordsForTags();
       final result = commonCurrency != null
           ? computeTotalInCurrency(
-              recordsForTotal, widget.walletCurrencyMap, commonCurrency,
-              isAbsValue: false)
-          : computeConvertedTotal(recordsForTotal, widget.walletCurrencyMap,
-              isAbsValue: false);
+              recordsForTotal,
+              widget.walletCurrencyMap,
+              commonCurrency,
+              isAbsValue: false,
+            )
+          : computeConvertedTotal(
+              recordsForTotal,
+              widget.walletCurrencyMap,
+              isAbsValue: false,
+            );
       totalAmount = result.total;
       viewAllCurrency = result.currency;
       final originalResult = computeConvertedTotal(
-          recordsForTotal, widget.walletCurrencyMap,
-          isAbsValue: false);
+        recordsForTotal,
+        widget.walletCurrencyMap,
+        isAbsValue: false,
+      );
       totalOriginalAmount = originalResult.total;
       viewAllOriginalCurrency = originalResult.currency;
     }
@@ -459,22 +518,24 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
 
     // Show "All tags" row when a date is selected
     if (widget.selectedDate != null) {
-      children.add(Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
-            child: ViewAllSummaryRow(
-              label: "All tags".i18n,
-              totalAmount: totalAmount,
-              onTapCallback: () => _navigateToAllTags(),
-              currency: viewAllCurrency,
-              originalValue: totalOriginalAmount,
-              originalCurrency: viewAllOriginalCurrency,
+      children.add(
+        Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+              child: ViewAllSummaryRow(
+                label: "All tags".i18n,
+                totalAmount: totalAmount,
+                onTapCallback: () => _navigateToAllTags(),
+                currency: viewAllCurrency,
+                originalValue: totalOriginalAmount,
+                originalCurrency: viewAllOriginalCurrency,
+              ),
             ),
-          ),
-          Divider()
-        ],
-      ));
+            Divider(),
+          ],
+        ),
+      );
     }
 
     if (aggregatedTags.isEmpty) {
@@ -526,15 +587,26 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
     if (widget.selectedDate == null) return;
 
     final detailFrom = widget.selectedDate;
-    final detailTo =
-        getEndOfInterval(widget.selectedDate!, widget.aggregationMethod);
+    final detailTo = getEndOfInterval(
+      widget.selectedDate!,
+      widget.aggregationMethod,
+    );
 
     // Filter records by date range only (no tag filter)
     // Use start of day for from and end of day for to to ensure inclusive range
-    final fromDate =
-        DateTime(detailFrom!.year, detailFrom.month, detailFrom.day);
-    final toDate =
-        DateTime(detailTo.year, detailTo.month, detailTo.day, 23, 59, 59);
+    final fromDate = DateTime(
+      detailFrom!.year,
+      detailFrom.month,
+      detailFrom.day,
+    );
+    final toDate = DateTime(
+      detailTo.year,
+      detailTo.month,
+      detailTo.day,
+      23,
+      59,
+      59,
+    );
     final detailRecords = widget.records.where((r) {
       final recordDate = r!.dateTime;
       return !recordDate.isBefore(fromDate) && !recordDate.isAfter(toDate);
@@ -568,7 +640,9 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
   /// Aggregates records by tag, computing currency-aware totals.
   /// When [commonCurrency] is set, all totals are expressed in that currency.
   List<TagSumTuple> _aggregateTags(
-      List<Record?> records, String? commonCurrency) {
+    List<Record?> records,
+    String? commonCurrency,
+  ) {
     // Group records by tag
     final tagRecordsMap = <String, List<Record?>>{};
 
@@ -588,30 +662,49 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
     return tagRecordsMap.entries.map((entry) {
       final result = commonCurrency != null
           ? computeTotalInCurrency(
-              entry.value, widget.walletCurrencyMap, commonCurrency,
-              isAbsValue: true)
-          : computeConvertedTotal(entry.value, widget.walletCurrencyMap,
-              isAbsValue: true);
+              entry.value,
+              widget.walletCurrencyMap,
+              commonCurrency,
+              isAbsValue: true,
+            )
+          : computeConvertedTotal(
+              entry.value,
+              widget.walletCurrencyMap,
+              isAbsValue: true,
+            );
       final originalResult = computeConvertedTotal(
-          entry.value, widget.walletCurrencyMap,
-          isAbsValue: true);
+        entry.value,
+        widget.walletCurrencyMap,
+        isAbsValue: true,
+      );
       // Signed totals (kept separately from the absolute display values) so
       // the row amounts can be colored by sign.
       final signedResult = commonCurrency != null
           ? computeTotalInCurrency(
-              entry.value, widget.walletCurrencyMap, commonCurrency,
-              isAbsValue: false)
-          : computeConvertedTotal(entry.value, widget.walletCurrencyMap,
-              isAbsValue: false);
+              entry.value,
+              widget.walletCurrencyMap,
+              commonCurrency,
+              isAbsValue: false,
+            )
+          : computeConvertedTotal(
+              entry.value,
+              widget.walletCurrencyMap,
+              isAbsValue: false,
+            );
       final signedOriginalResult = computeConvertedTotal(
-          entry.value, widget.walletCurrencyMap,
-          isAbsValue: false);
-      return TagSumTuple(entry.key, result.total,
-          currency: result.currency,
-          originalValue: originalResult.total,
-          originalCurrency: originalResult.currency,
-          signedValue: signedResult.total,
-          signedOriginalValue: signedOriginalResult.total);
+        entry.value,
+        widget.walletCurrencyMap,
+        isAbsValue: false,
+      );
+      return TagSumTuple(
+        entry.key,
+        result.total,
+        currency: result.currency,
+        originalValue: originalResult.total,
+        originalCurrency: originalResult.currency,
+        signedValue: signedResult.total,
+        signedOriginalValue: signedOriginalResult.total,
+      );
     }).toList();
   }
 
@@ -629,15 +722,23 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
       final recordsForTotal = _getFilteredRecordsForWallets();
       final result = commonCurrency != null
           ? computeTotalInCurrency(
-              recordsForTotal, widget.walletCurrencyMap, commonCurrency,
-              isAbsValue: false)
-          : computeConvertedTotal(recordsForTotal, widget.walletCurrencyMap,
-              isAbsValue: false);
+              recordsForTotal,
+              widget.walletCurrencyMap,
+              commonCurrency,
+              isAbsValue: false,
+            )
+          : computeConvertedTotal(
+              recordsForTotal,
+              widget.walletCurrencyMap,
+              isAbsValue: false,
+            );
       totalAmount = result.total;
       viewAllCurrency = result.currency;
       final originalResult = computeConvertedTotal(
-          recordsForTotal, widget.walletCurrencyMap,
-          isAbsValue: false);
+        recordsForTotal,
+        widget.walletCurrencyMap,
+        isAbsValue: false,
+      );
       totalOriginalAmount = originalResult.total;
       viewAllOriginalCurrency = originalResult.currency;
     }
@@ -646,22 +747,24 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
 
     // Show "All wallets" row when a date is selected
     if (widget.selectedDate != null) {
-      children.add(Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
-            child: ViewAllSummaryRow(
-              label: "All wallets".i18n,
-              totalAmount: totalAmount,
-              onTapCallback: () => _navigateToAllWallets(),
-              currency: viewAllCurrency,
-              originalValue: totalOriginalAmount,
-              originalCurrency: viewAllOriginalCurrency,
+      children.add(
+        Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+              child: ViewAllSummaryRow(
+                label: "All wallets".i18n,
+                totalAmount: totalAmount,
+                onTapCallback: () => _navigateToAllWallets(),
+                currency: viewAllCurrency,
+                originalValue: totalOriginalAmount,
+                originalCurrency: viewAllOriginalCurrency,
+              ),
             ),
-          ),
-          Divider()
-        ],
-      ));
+            Divider(),
+          ],
+        ),
+      );
     }
 
     if (aggregatedWallets.isEmpty) {
@@ -678,15 +781,18 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
       final walletsAndSums = aggregatedWallets.toList()
         ..sort((a, b) => b.value.abs().compareTo(a.value.abs()));
 
-      final totalSum =
-          walletsAndSums.fold<double>(0.0, (sum, e) => sum + e.value);
+      final totalSum = walletsAndSums.fold<double>(
+        0.0,
+        (sum, e) => sum + e.value,
+      );
       final maxSum = walletsAndSums.isNotEmpty ? walletsAndSums[0].value : 0.0;
 
       children.add(
         AggregatedListView<WalletSumTuple>(
           items: walletsAndSums,
           itemBuilder: (context, walletSum, i) {
-            final wallet = widget.walletMap[walletSum.key] ??
+            final wallet =
+                widget.walletMap[walletSum.key] ??
                 Wallet("Unknown wallet".i18n, id: walletSum.key);
             return WalletSummaryRow(
               wallet: wallet,
@@ -718,15 +824,26 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
     if (widget.selectedDate == null) return;
 
     final detailFrom = widget.selectedDate;
-    final detailTo =
-        getEndOfInterval(widget.selectedDate!, widget.aggregationMethod);
+    final detailTo = getEndOfInterval(
+      widget.selectedDate!,
+      widget.aggregationMethod,
+    );
 
     // Filter records by date range only (no wallet filter)
     // Use start of day for from and end of day for to to ensure inclusive range
-    final fromDate =
-        DateTime(detailFrom!.year, detailFrom.month, detailFrom.day);
-    final toDate =
-        DateTime(detailTo.year, detailTo.month, detailTo.day, 23, 59, 59);
+    final fromDate = DateTime(
+      detailFrom!.year,
+      detailFrom.month,
+      detailFrom.day,
+    );
+    final toDate = DateTime(
+      detailTo.year,
+      detailTo.month,
+      detailTo.day,
+      23,
+      59,
+      59,
+    );
     final detailRecords = widget.records.where((r) {
       final recordDate = r!.dateTime;
       return !recordDate.isBefore(fromDate) && !recordDate.isAfter(toDate);
@@ -760,7 +877,9 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
   /// Aggregates records by wallet, computing currency-aware totals.
   /// When [commonCurrency] is set, all totals are expressed in that currency.
   List<WalletSumTuple> _aggregateWallets(
-      List<Record?> records, String? commonCurrency) {
+    List<Record?> records,
+    String? commonCurrency,
+  ) {
     // Group records by wallet
     final walletRecordsMap = <int, List<Record?>>{};
 
@@ -778,30 +897,49 @@ class _StatisticsSummaryCardState extends State<StatisticsSummaryCard> {
     return walletRecordsMap.entries.map((entry) {
       final result = commonCurrency != null
           ? computeTotalInCurrency(
-              entry.value, widget.walletCurrencyMap, commonCurrency,
-              isAbsValue: true)
-          : computeConvertedTotal(entry.value, widget.walletCurrencyMap,
-              isAbsValue: true);
+              entry.value,
+              widget.walletCurrencyMap,
+              commonCurrency,
+              isAbsValue: true,
+            )
+          : computeConvertedTotal(
+              entry.value,
+              widget.walletCurrencyMap,
+              isAbsValue: true,
+            );
       final originalResult = computeConvertedTotal(
-          entry.value, widget.walletCurrencyMap,
-          isAbsValue: true);
+        entry.value,
+        widget.walletCurrencyMap,
+        isAbsValue: true,
+      );
       // Signed totals (kept separately from the absolute display values) so
       // the row amounts can be colored by sign.
       final signedResult = commonCurrency != null
           ? computeTotalInCurrency(
-              entry.value, widget.walletCurrencyMap, commonCurrency,
-              isAbsValue: false)
-          : computeConvertedTotal(entry.value, widget.walletCurrencyMap,
-              isAbsValue: false);
+              entry.value,
+              widget.walletCurrencyMap,
+              commonCurrency,
+              isAbsValue: false,
+            )
+          : computeConvertedTotal(
+              entry.value,
+              widget.walletCurrencyMap,
+              isAbsValue: false,
+            );
       final signedOriginalResult = computeConvertedTotal(
-          entry.value, widget.walletCurrencyMap,
-          isAbsValue: false);
-      return WalletSumTuple(entry.key, result.total,
-          currency: result.currency,
-          originalValue: originalResult.total,
-          originalCurrency: originalResult.currency,
-          signedValue: signedResult.total,
-          signedOriginalValue: signedOriginalResult.total);
+        entry.value,
+        widget.walletCurrencyMap,
+        isAbsValue: false,
+      );
+      return WalletSumTuple(
+        entry.key,
+        result.total,
+        currency: result.currency,
+        originalValue: originalResult.total,
+        originalCurrency: originalResult.currency,
+        signedValue: signedResult.total,
+        signedOriginalValue: signedOriginalResult.total,
+      );
     }).toList();
   }
 }

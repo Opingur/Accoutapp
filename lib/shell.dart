@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,7 +7,7 @@ import 'package:piggybank/comms/announcement-dialog.dart';
 import 'package:piggybank/helpers/amount-input-utils.dart';
 import 'package:piggybank/i18n.dart';
 import 'package:piggybank/records/records-page.dart';
-import 'package:piggybank/services/service-config.dart';
+import 'package:piggybank/records/components/home_compact_metrics.dart';
 import 'package:piggybank/settings/constants/preferences-keys.dart';
 import 'package:piggybank/settings/preferences-utils.dart';
 import 'package:piggybank/settings/settings-page.dart';
@@ -26,8 +25,9 @@ class Shell extends StatefulWidget {
 }
 
 class ShellState extends State<Shell> {
-  static const MethodChannel _widgetActionChannel =
-      MethodChannel('oinkoin/widget_action');
+  static const MethodChannel _widgetActionChannel = MethodChannel(
+    'oinkoin/widget_action',
+  );
 
   /// Singleton-like access for external refresh calls (e.g., quick actions).
   static ShellState? _instance;
@@ -122,8 +122,9 @@ class ShellState extends State<Shell> {
       if (!mounted) return;
       String? action;
       try {
-        action =
-            await _widgetActionChannel.invokeMethod<String>('getInitialAction');
+        action = await _widgetActionChannel.invokeMethod<String>(
+          'getInitialAction',
+        );
       } catch (_) {
         return;
       }
@@ -149,137 +150,28 @@ class ShellState extends State<Shell> {
     _tabRecordsKey.currentState?.onTabChange();
   }
 
-  /// Returns the fixed logical indexes currently represented in the
-  /// NavigationBar, preserving the indexes used by the tab navigators.
-  List<int> _visibleLogicalIndexes({
-    required bool walletsEnabled,
-    required bool budgetsEnabled,
-  }) {
-    return [
-      0,
-      if (walletsEnabled) 1,
-      2,
-      if (budgetsEnabled) 3,
-      4,
-    ];
+  Future<void> _showRecords() async {
+    if (_currentIndex != 0) setState(() => _currentIndex = 0);
+    await _tabRecordsKey.currentState?.onTabChange();
   }
 
-  /// Maps a logical tab index to the visual NavigationBar index.
-  int _visualIndex(
-    int logicalIndex,
-    bool walletsEnabled,
-    bool budgetsEnabled,
-  ) {
-    final index = _visibleLogicalIndexes(
-      walletsEnabled: walletsEnabled,
-      budgetsEnabled: budgetsEnabled,
-    ).indexOf(logicalIndex);
-    return index < 0 ? 0 : index;
+  void _openPrimaryAddFlow() {
+    if (_currentIndex != 0) setState(() => _currentIndex = 0);
+    _tabRecordsKey.currentState?.openAddRecord();
   }
 
-  /// Maps a visual NavigationBar index to the logical tab index.
-  int _logicalIndex(
-    int visualIndex,
-    bool walletsEnabled,
-    bool budgetsEnabled,
-  ) {
-    final indexes = _visibleLogicalIndexes(
-      walletsEnabled: walletsEnabled,
-      budgetsEnabled: budgetsEnabled,
-    );
-    final safeVisualIndex =
-        visualIndex.clamp(0, indexes.length - 1).toInt();
-    return indexes[safeVisualIndex];
+  void _openStatistics() {
+    if (_currentIndex != 0) setState(() => _currentIndex = 0);
+    _tabRecordsKey.currentState?.openStatistics();
   }
 
-  List<Widget> _buildDestinations(
-    bool walletsEnabled,
-    bool budgetsEnabled,
-    bool animationsEnabled,
-  ) {
-    Widget navigationIcon({
-      required int logicalIndex,
-      required String semanticsIdentifier,
-      required IconData iconData,
-      required IconData selectedIconData,
-      required _NavigationIconMotion motion,
-    }) {
-      final isSelected = _currentIndex == logicalIndex;
-      return Semantics(
-        identifier: isSelected
-            ? '$semanticsIdentifier-selected'
-            : semanticsIdentifier,
-        child: _AnimatedNavigationIcon(
-          key: ValueKey<String>(semanticsIdentifier),
-          isSelected: isSelected,
-          icon: iconData,
-          selectedIcon: selectedIconData,
-          motion: motion,
-          animationsEnabled: animationsEnabled,
-        ),
-      );
-    }
+  void _showSettings() {
+    if (_currentIndex != 4) setState(() => _currentIndex = 4);
+  }
 
-    final destinations = <Widget>[
-      NavigationDestination(
-        label: "Home".i18n,
-        icon: navigationIcon(
-          logicalIndex: 0,
-          semanticsIdentifier: 'home-tab',
-          iconData: Icons.home_outlined,
-          selectedIconData: Icons.home,
-          motion: _NavigationIconMotion.bounce,
-        ),
-      ),
-    ];
-    if (walletsEnabled) {
-      destinations.add(
-        NavigationDestination(
-          label: "Wallets".i18n,
-          icon: navigationIcon(
-            logicalIndex: 1,
-            semanticsIdentifier: 'wallets-tab',
-            iconData: Icons.account_balance_wallet_outlined,
-            selectedIconData: Icons.account_balance_wallet,
-            motion: _NavigationIconMotion.mirror,
-          ),
-        ),
-      );
-    }
-    destinations.addAll([
-      NavigationDestination(
-        label: "Categories".i18n,
-        icon: navigationIcon(
-          logicalIndex: 2,
-          semanticsIdentifier: 'categories-tab',
-          iconData: Icons.category_outlined,
-          selectedIconData: Icons.category,
-          motion: _NavigationIconMotion.rotateAndStay,
-        ),
-      ),
-      if (budgetsEnabled)
-        NavigationDestination(
-          label: "Budgets".i18n,
-          icon: navigationIcon(
-            logicalIndex: 3,
-            semanticsIdentifier: 'budgets-tab',
-            iconData: Icons.savings_outlined,
-            selectedIconData: Icons.savings,
-            motion: _NavigationIconMotion.mirror,
-          ),
-        ),
-      NavigationDestination(
-        label: "Settings".i18n,
-        icon: navigationIcon(
-          logicalIndex: 4,
-          semanticsIdentifier: 'settings-tab',
-          iconData: Icons.settings_outlined,
-          selectedIconData: Icons.settings,
-          motion: _NavigationIconMotion.rotate,
-        ),
-      ),
-    ]);
-    return destinations;
+  void _showDiscoverPlaceholder() {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('发现功能即将推出')));
   }
 
   @override
@@ -465,215 +357,205 @@ class ShellState extends State<Shell> {
           ),
         ),
         bottomNavigationBar: ValueListenableBuilder<bool>(
-          valueListenable: ServiceConfig.walletsEnabledNotifier,
-          builder: (context, walletsEnabled, _) {
-            return ValueListenableBuilder<bool>(
-              valueListenable: ServiceConfig.budgetsEnabledNotifier,
-              builder: (context, budgetsEnabled, _) {
-                // Defensively reset to the Home tab if the currently selected
-                // tab no longer exists after a feature is disabled.
-                if ((!walletsEnabled && _currentIndex == 1) ||
-                    (!budgetsEnabled && _currentIndex == 3)) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) setState(() => _currentIndex = 0);
-                  });
-                }
-                return ValueListenableBuilder<bool>(
-                  valueListenable:
-                      ServiceConfig.navigationBarAnimationsEnabledNotifier,
-                  builder: (context, animationsEnabled, _) {
-                    return ValueListenableBuilder<bool>(
-                      valueListenable: inAppKeyboardOpen,
-                  builder: (context, isOpen, child) => AnimatedSize(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeOut,
-                    // Collapse the nav bar but keep a spacer equal to the system
-                    // navigation bar inset so the Scaffold body never extends behind it.
-                    child: isOpen
-                        ? SizedBox(
-                            height: MediaQuery.paddingOf(context).bottom)
-                        : child!,
+          valueListenable: inAppKeyboardOpen,
+          builder: (context, isOpen, _) => AnimatedSize(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+            child: isOpen
+                ? SizedBox(height: MediaQuery.paddingOf(context).bottom)
+                : _HomeBottomBar(
+                    selectedIndex: _currentIndex,
+                    onRecordsPressed: _showRecords,
+                    onAddPressed: _openPrimaryAddFlow,
+                    onStatisticsPressed: _openStatistics,
+                    onDiscoverPressed: _showDiscoverPlaceholder,
+                    onProfilePressed: _showSettings,
                   ),
-                      child: NavigationBar(
-                    animationDuration: animationsEnabled
-                        ? const Duration(milliseconds: 220)
-                        : null,
-                    selectedIndex: _visualIndex(
-                        _currentIndex, walletsEnabled, budgetsEnabled),
-                    labelBehavior:
-                        NavigationDestinationLabelBehavior.alwaysShow,
-                    // One point smaller than labelSmall (11sp) for extra
-                    // margin so longer localized labels don't wrap.
-                    labelTextStyle: WidgetStatePropertyAll<TextStyle?>(
-                      Theme.of(context).textTheme.labelSmall?.copyWith(
-                        fontSize: 10,
-                      ),
-                    ),
-                    onDestinationSelected: (int visualIndex) async {
-                      setState(() {
-                        _currentIndex = _logicalIndex(
-                            visualIndex, walletsEnabled, budgetsEnabled);
-                      });
-                      // refresh data whenever changing the tab
-                      if (_currentIndex == 0) {
-                        await _tabRecordsKey.currentState?.onTabChange();
-                      }
-                      if (_currentIndex == 1) {
-                        await _tabWalletsKey.currentState?.onTabChange();
-                      }
-                      if (_currentIndex == 2) {
-                        await _tabCategoriesKey.currentState?.onTabChange();
-                      }
-                      if (_currentIndex == 3) {
-                        await _tabBudgetsKey.currentState?.onTabChange();
-                      }
-                    },
-                    destinations: _buildDestinations(
-                      walletsEnabled,
-                      budgetsEnabled,
-                      animationsEnabled,
-                    ),
-                      ),
-                    );
-                  },
-                );
-              },
-            );
-          },
+          ),
         ),
       ),
     );
   }
 }
 
-/// Defines the selection motion for a navigation icon.
-enum _NavigationIconMotion { bounce, rotate, mirror, rotateAndStay }
-
-/// Animates an outlined-to-filled icon with a per-destination transition.
-class _AnimatedNavigationIcon extends StatefulWidget {
-  const _AnimatedNavigationIcon({
-    super.key,
-    required this.isSelected,
-    required this.icon,
-    required this.selectedIcon,
-    required this.motion,
-    required this.animationsEnabled,
+class _HomeBottomBar extends StatelessWidget {
+  const _HomeBottomBar({
+    required this.selectedIndex,
+    required this.onRecordsPressed,
+    required this.onAddPressed,
+    required this.onStatisticsPressed,
+    required this.onDiscoverPressed,
+    required this.onProfilePressed,
   });
 
-  final bool isSelected;
-  final IconData icon;
-  final IconData selectedIcon;
-  final _NavigationIconMotion motion;
-  final bool animationsEnabled;
-
-  @override
-  State<_AnimatedNavigationIcon> createState() =>
-      _AnimatedNavigationIconState();
-}
-
-class _AnimatedNavigationIconState extends State<_AnimatedNavigationIcon>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 240),
-      reverseDuration: const Duration(milliseconds: 170),
-      value: widget.isSelected ? 1.0 : 0.0,
-      vsync: this,
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant _AnimatedNavigationIcon oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.isSelected == widget.isSelected) return;
-
-    if (widget.isSelected) {
-      _controller.forward(from: 0.0);
-    } else {
-      _controller.reverse(from: 1.0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  double _rotationTurns(double progress) {
-    switch (widget.motion) {
-      case _NavigationIconMotion.bounce:
-        return 0.0;
-      case _NavigationIconMotion.rotate:
-        // Settings/Home rotate briefly and settle back to their original angle.
-        return 0.09 * math.sin(progress * math.pi);
-      case _NavigationIconMotion.mirror:
-        return 0.0;
-      case _NavigationIconMotion.rotateAndStay:
-        // Categories remain at a quarter turn while selected.
-        return 0.25 * progress;
-    }
-  }
-
-  double _horizontalScale(double progress) {
-    if (widget.motion == _NavigationIconMotion.mirror) {
-      // A scaleX transition through zero creates a left-to-right mirror flip.
-      return 1.0 - (2.0 * progress);
-    }
-    return 1.0;
-  }
+  final int selectedIndex;
+  final VoidCallback onRecordsPressed;
+  final VoidCallback onAddPressed;
+  final VoidCallback onStatisticsPressed;
+  final VoidCallback onDiscoverPressed;
+  final VoidCallback onProfilePressed;
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.animationsEnabled) {
-      return Icon(widget.isSelected ? widget.selectedIcon : widget.icon);
-    }
-
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final progress = _controller.value;
-        final selectionOpacity = Curves.easeIn.transform(progress);
-        final selectedScale =
-            0.88 + 0.12 * Curves.easeOutBack.transform(progress);
-        final rotation = _rotationTurns(progress) * 2 * math.pi;
-        final horizontalScale = _horizontalScale(progress);
-        final keepsRotation =
-            widget.motion == _NavigationIconMotion.rotateAndStay;
-        final unselectedRotation = keepsRotation ? rotation : -rotation;
-
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            Opacity(
-              opacity: 1.0 - selectionOpacity,
-              child: Transform.rotate(
-                angle: unselectedRotation,
-                child: Transform.scale(
-                  scaleX: horizontalScale,
-                  scaleY: 1.0 - 0.06 * progress,
-                  child: Icon(widget.icon),
+    const yellow = Color(0xFFFFD21F);
+    const ink = Color(0xFF242424);
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return Material(
+      color: Colors.white,
+      elevation: 0,
+      child: SizedBox(
+        height: HomeCompactMetrics.bottomBarHeight + bottomInset,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Color(0xFFEFEFEF))),
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(12, 4, 12, 0 + bottomInset),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _BottomAction(
+                  icon: Icons.receipt_long_outlined,
+                  label: '明细',
+                  selected: selectedIndex == 0,
+                  onTap: onRecordsPressed,
                 ),
+                _BottomAction(
+                  icon: Icons.query_stats_outlined,
+                  label: '图表',
+                  onTap: onStatisticsPressed,
+                ),
+                Semantics(
+                  identifier: 'add-record',
+                  button: true,
+                  label: '记账',
+                  child: _PrimaryBottomAction(
+                    color: yellow,
+                    ink: ink,
+                    onTap: onAddPressed,
+                  ),
+                ),
+                _BottomAction(
+                  icon: Icons.explore_outlined,
+                  label: '发现',
+                  onTap: onDiscoverPressed,
+                ),
+                _BottomAction(
+                  icon: Icons.person_outline,
+                  label: '我的',
+                  selected: selectedIndex == 4,
+                  onTap: onProfilePressed,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PrimaryBottomAction extends StatelessWidget {
+  const _PrimaryBottomAction({
+    required this.color,
+    required this.ink,
+    required this.onTap,
+  });
+
+  final Color color;
+  final Color ink;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 58,
+    height: 60,
+    child: Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.bottomCenter,
+      children: [
+        Positioned(
+          top: -17,
+          child: InkResponse(
+            onTap: onTap,
+            radius: 34,
+            child: Container(
+              width: HomeCompactMetrics.primaryActionSize,
+              height: HomeCompactMetrics.primaryActionSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color,
+                border: Border.all(color: Colors.white, width: 4),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.14),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.add_rounded,
+                size: HomeCompactMetrics.primaryActionIcon,
+                color: ink,
               ),
             ),
-            Opacity(
-              opacity: selectionOpacity,
-              child: Transform.rotate(
-                angle: rotation,
-                child: Transform.scale(
-                  scaleX: horizontalScale,
-                  scaleY: selectedScale,
-                  child: Icon(widget.selectedIcon),
-                ),
+          ),
+        ),
+        const Positioned(
+          bottom: 0,
+          child: Text(
+            '记账',
+            style: TextStyle(
+              color: Color(0xFF242424),
+              fontSize: HomeCompactMetrics.bottomLabel,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _BottomAction extends StatelessWidget {
+  const _BottomAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.selected = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    const ink = Color(0xFF242424);
+    final color = selected ? ink : const Color(0xFF8C8C8C);
+    return InkResponse(
+      onTap: onTap,
+      radius: 26,
+      child: SizedBox(
+        width: 52,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: HomeCompactMetrics.bottomIcon),
+            const SizedBox(height: 1),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: HomeCompactMetrics.bottomLabel,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 }

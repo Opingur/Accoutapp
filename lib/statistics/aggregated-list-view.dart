@@ -19,7 +19,7 @@ class AggregatedListView<T> extends StatelessWidget {
       separatorBuilder: (context, index) {
         return Divider();
       },
-      padding: const EdgeInsets.all(6.0),
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
       itemBuilder: (context, i) {
         return itemBuilder(context, items[i], i);
       },

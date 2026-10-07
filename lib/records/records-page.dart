@@ -11,12 +11,11 @@ import '../profiles/profiles-page.dart';
 import '../services/profile-service.dart';
 import '../helpers/review-prompt-service.dart';
 import '../services/service-config.dart';
-import '../settings/constants/preferences-keys.dart';
-import '../settings/preferences-utils.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
-import 'components/days-summary-box-card.dart';
+
+import 'components/compact_home_header.dart';
 import 'components/records-day-list.dart';
-import 'components/tab_records_app_bar.dart';
 import 'components/tab_records_date_picker.dart';
 import 'components/tab_records_search_app_bar.dart';
 import 'components/tab_records_selection_app_bar.dart';
@@ -37,20 +36,15 @@ class TabRecordsState extends State<TabRecords> {
 
   late final TabRecordsController _controller;
   late final AppLifecycleListener _listener;
-  bool _isAppBarExpanded = true;
   bool _isSelectMode = false;
   Set<int> _selectedRecordIds = {};
 
   @override
   void initState() {
     super.initState();
-    _controller = TabRecordsController(
-      onStateChanged: () => setState(() {}),
-    );
+    _controller = TabRecordsController(onStateChanged: () => setState(() {}));
 
-    _listener = AppLifecycleListener(
-      onStateChange: _handleOnResume,
-    );
+    _listener = AppLifecycleListener(onStateChange: _handleOnResume);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _controller.initialize();
@@ -89,7 +83,8 @@ class TabRecordsState extends State<TabRecords> {
 
   void _exitSelectMode() {
     _logger.debug(
-        'Exiting select mode (${_selectedRecordIds.length} records were selected)');
+      'Exiting select mode (${_selectedRecordIds.length} records were selected)',
+    );
     setState(() {
       _isSelectMode = false;
       _selectedRecordIds = {};
@@ -120,9 +115,11 @@ class TabRecordsState extends State<TabRecords> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text("Delete records?".i18n),
-        content: Text("Are you sure you want to delete %s record(s)?"
-            .i18n
-            .fill([_selectedRecordIds.length.toString()])),
+        content: Text(
+          "Are you sure you want to delete %s record(s)?".i18n.fill([
+            _selectedRecordIds.length.toString(),
+          ]),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -159,9 +156,9 @@ class TabRecordsState extends State<TabRecords> {
     } catch (e, st) {
       _logger.handle(e, st, 'Error during batch delete');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting records: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error deleting records: $e')));
       }
     }
   }
@@ -170,7 +167,8 @@ class TabRecordsState extends State<TabRecords> {
     // Copy IDs before async operations
     final idsToDuplicate = List<int>.from(_selectedRecordIds);
     _logger.info(
-        'Batch duplicating ${idsToDuplicate.length} records: $idsToDuplicate');
+      'Batch duplicating ${idsToDuplicate.length} records: $idsToDuplicate',
+    );
 
     // Exit select mode immediately
     if (mounted) {
@@ -198,8 +196,9 @@ class TabRecordsState extends State<TabRecords> {
   }
 
   Future<void> _batchMoveToWallet() async {
-    final wallets = await ServiceConfig.database
-        .getAllWallets(profileId: ProfileService.instance.activeProfileId);
+    final wallets = await ServiceConfig.database.getAllWallets(
+      profileId: ProfileService.instance.activeProfileId,
+    );
     if (!mounted) return;
     final chosenWallet = await showDialog<Wallet>(
       context: context,
@@ -210,7 +209,8 @@ class TabRecordsState extends State<TabRecords> {
     // Copy IDs before async operations
     final idsToMove = List<int>.from(_selectedRecordIds);
     _logger.info(
-        'Batch moving ${idsToMove.length} records to wallet "${chosenWallet.name}" (ID ${chosenWallet.id})');
+      'Batch moving ${idsToMove.length} records to wallet "${chosenWallet.name}" (ID ${chosenWallet.id})',
+    );
 
     // Exit select mode immediately
     if (mounted) {
@@ -219,8 +219,10 @@ class TabRecordsState extends State<TabRecords> {
 
     try {
       // Batch update wallet IDs (skips transfers with filter in DB)
-      await ServiceConfig.database
-          .updateRecordWalletInBatch(idsToMove, chosenWallet.id);
+      await ServiceConfig.database.updateRecordWalletInBatch(
+        idsToMove,
+        chosenWallet.id,
+      );
       // Refresh list after all updates complete
       if (mounted) {
         await _controller.updateRecurrentRecordsAndFetchRecords();
@@ -231,9 +233,8 @@ class TabRecordsState extends State<TabRecords> {
     } catch (e, st) {
       _logger.handle(e, st, 'Error during batch move to wallet');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error moving records: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error moving records: $e')));
       }
     }
   }
@@ -247,11 +248,7 @@ class TabRecordsState extends State<TabRecords> {
           _exitSelectMode();
         }
       },
-      child: Scaffold(
-        body: _buildBody(),
-        appBar: _buildAppBar(),
-        floatingActionButton: _buildFloatingActionButton(),
-      ),
+      child: Scaffold(body: _buildBody(), appBar: _buildAppBar()),
     );
   }
 
@@ -275,27 +272,12 @@ class TabRecordsState extends State<TabRecords> {
         }
       },
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 600),
+        duration: const Duration(milliseconds: 250),
         switchInCurve: Curves.easeOut,
         switchOutCurve: Curves.easeIn,
-        child: NotificationListener<ScrollNotification>(
+        child: CustomScrollView(
           key: ValueKey(_controller.header),
-          onNotification: (scrollInfo) {
-            final isExpanded = scrollInfo.metrics.pixels < 100;
-            if (_isAppBarExpanded != isExpanded) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  setState(() {
-                    _isAppBarExpanded = isExpanded;
-                  });
-                }
-              });
-            }
-            return true;
-          },
-          child: CustomScrollView(
-            slivers: _buildSlivers(),
-          ),
+          slivers: _buildSlivers(),
         ),
       ),
     );
@@ -320,8 +302,9 @@ class TabRecordsState extends State<TabRecords> {
     final result = await AppReviewDialog.show(
       context,
       supportEmail: 'support@oinkoin.com',
-      storePackageName:
-          pkg.contains('alpha') ? 'com.github.emavgl.piggybank' : pkg,
+      storePackageName: pkg.contains('alpha')
+          ? 'com.github.emavgl.piggybank'
+          : pkg,
       supportWebsitePage: 'https://oinkoin.com/support',
     );
 
@@ -336,8 +319,7 @@ class TabRecordsState extends State<TabRecords> {
 
   List<Widget> _buildSlivers() {
     return <Widget>[
-      if (!_controller.isSearchingEnabled) _buildMainSliverAppBar(),
-      _buildSummarySection(),
+      if (!_controller.isSearchingEnabled) _buildMonthOverview(),
       if (_controller.filteredRecords.isEmpty) _buildEmptyState(),
       RecordsDayList(
         _controller.filteredRecords,
@@ -350,35 +332,20 @@ class TabRecordsState extends State<TabRecords> {
         onDateTapped: (date) =>
             _controller.navigateToAddNewRecord(context, initialDate: date),
       ),
-      const SliverToBoxAdapter(
-        child: SizedBox(height: 75),
-      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 76)),
     ];
   }
 
-  Widget _buildMainSliverAppBar() {
-    return TabRecordsAppBar(
-      controller: _controller,
-      isAppBarExpanded: _isAppBarExpanded,
-      simplifyAppBar: !(PreferencesUtils.getOrDefault<bool>(
-          ServiceConfig.sharedPreferences!, PreferencesKeys.showHomepageImage) ??
-          true),
-      profileName: _controller.activeProfileName,
-      onProfileTapped: () => _navigateToProfilesPage(),
-      onDatePickerPressed: () => _showDatePicker(),
-      onStatisticsPressed: () => _controller.navigateToStatisticsPage(context),
-      onSearchPressed: () => _controller.startSearch(),
-      onMenuItemSelected: (index) =>
-          _controller.handleMenuAction(context, index),
-      isSelectMode: _isSelectMode,
-      selectedCount: _selectedRecordIds.length,
-      onClose: _exitSelectMode,
-      onDelete: _batchDelete,
-      onSelectAll: _selectAll,
-      onDuplicate: _batchDuplicate,
-      onMoveToWallet: (ServiceConfig.isPremium && ServiceConfig.walletsEnabled)
-          ? _batchMoveToWallet
-          : null,
+  Widget _buildMonthOverview() {
+    final month = _controller.customIntervalFrom ?? DateTime.now();
+    return SliverToBoxAdapter(
+      child: CompactHomeHeader(
+        records: _controller.overviewRecords ?? _controller.filteredRecords,
+        walletCurrencyMap: _controller.walletCurrencyMap,
+        month: month,
+        onMonthTap: _showDatePicker,
+        onProfileTap: _navigateToProfilesPage,
+      ),
     );
   }
 
@@ -395,8 +362,6 @@ class TabRecordsState extends State<TabRecords> {
   }
 
   PreferredSizeWidget? _buildAppBar() {
-    if (!_controller.isSearchingEnabled) return null;
-
     if (_isSelectMode) {
       return TabRecordsSelectionAppBar(
         selectedCount: _selectedRecordIds.length,
@@ -406,10 +371,12 @@ class TabRecordsState extends State<TabRecords> {
         onDuplicate: _batchDuplicate,
         onMoveToWallet:
             (ServiceConfig.isPremium && ServiceConfig.walletsEnabled)
-                ? _batchMoveToWallet
-                : null,
+            ? _batchMoveToWallet
+            : null,
       );
     }
+
+    if (!_controller.isSearchingEnabled) return null;
 
     return TabRecordsSearchAppBar(
       controller: _controller,
@@ -420,29 +387,6 @@ class TabRecordsState extends State<TabRecords> {
           _controller.handleMenuAction(context, index),
       onFilterPressed: () => _controller.showFilterModal(context),
       hasActiveFilters: _controller.hasActiveFilters,
-    );
-  }
-
-  Widget _buildSummarySection() {
-    // Hide the wallet/accounts bar when the wallets feature is disabled or the
-    // "Show wallet bar on the homepage" toggle is off. The Income/Expenses/
-    // Balance stats are always shown.
-    final showWalletBar =
-        ServiceConfig.walletsEnabled && ServiceConfig.showWalletBarOnHomepage;
-    return SliverToBoxAdapter(
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 5),
-        height: showWalletBar ? 130 : 75,
-        child: DaysSummaryBox(
-          _controller.overviewRecords ?? _controller.filteredRecords,
-          walletLabel: _controller.walletRowLabel,
-          walletBalanceString: _controller.selectedWalletsBalanceString,
-          walletBalance: _controller.selectedWalletsBalance,
-          walletCurrencyMap: _controller.walletCurrencyMap,
-          onWalletRowTap: () => _controller.navigateToWalletPicker(context),
-          showWalletRow: showWalletBar,
-        ),
-      ),
     );
   }
 
@@ -462,20 +406,6 @@ class TabRecordsState extends State<TabRecords> {
     );
   }
 
-  Widget _buildFloatingActionButton() {
-    // No hero animation: all shell tabs stay mounted, so default FAB hero
-    // tags would collide on any root-navigator push (duplicate-hero crash).
-    return FloatingActionButton(
-      heroTag: null,
-      onPressed: () => _controller.navigateToAddNewRecord(context),
-      tooltip: 'Add a new record'.i18n,
-      child: Semantics(
-        identifier: 'add-record',
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-
   Future<void> _showDatePicker() async {
     await showDialog(
       context: context,
@@ -485,6 +415,12 @@ class TabRecordsState extends State<TabRecords> {
       ),
     );
   }
+
+  /// Invoked by the shell-level primary action while this tab remains mounted.
+  Future<void> openAddRecord() => _controller.navigateToAddNewRecord(context);
+
+  /// Invoked by the shell-level statistics destination.
+  void openStatistics() => _controller.navigateToStatisticsPage(context);
 
   // Public method for external navigation callbacks
   onTabChange() async {

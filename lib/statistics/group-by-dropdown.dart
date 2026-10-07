@@ -40,10 +40,12 @@ class GroupByDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final recordsToCheck = _getFilteredRecords();
-    final hasTagRecords =
-        recordsToCheck.any((r) => r?.tags.isNotEmpty ?? false);
-    final uniqueTags =
-        recordsToCheck.expand<String>((r) => r?.tags ?? <String>[]).toSet();
+    final hasTagRecords = recordsToCheck.any(
+      (r) => r?.tags.isNotEmpty ?? false,
+    );
+    final uniqueTags = recordsToCheck
+        .expand<String>((r) => r?.tags ?? <String>[])
+        .toSet();
     final tagCount = uniqueTags.length;
 
     final walletsEnabled = ServiceConfig.walletsEnabled;
@@ -63,8 +65,10 @@ class GroupByDropdown extends StatelessWidget {
         tokens.add(
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            child:
-                Text("/", style: TextStyle(fontSize: 18, color: Colors.grey)),
+            child: Text(
+              "/",
+              style: TextStyle(fontSize: 15, color: Colors.grey),
+            ),
           ),
         );
       }
@@ -72,41 +76,49 @@ class GroupByDropdown extends StatelessWidget {
 
     void addRecordsToggle() {
       addSeparator();
-      tokens.add(_buildToggle(
-        label: "Records".i18n,
-        isSelected: groupByType == GroupByType.records,
-        onTap: () => onGroupByTypeChanged(GroupByType.records),
-      ));
+      tokens.add(
+        _buildToggle(
+          label: "Records".i18n,
+          isSelected: groupByType == GroupByType.records,
+          onTap: () => onGroupByTypeChanged(GroupByType.records),
+        ),
+      );
     }
 
     void addCategoriesToggle() {
       addSeparator();
-      tokens.add(_buildToggle(
-        label: "Categories".i18n,
-        isSelected: groupByType == GroupByType.category,
-        onTap: () => onGroupByTypeChanged(GroupByType.category),
-      ));
+      tokens.add(
+        _buildToggle(
+          label: "Categories".i18n,
+          isSelected: groupByType == GroupByType.category,
+          onTap: () => onGroupByTypeChanged(GroupByType.category),
+        ),
+      );
     }
 
     void addTagsToggle() {
       addSeparator();
-      tokens.add(_buildTagToggles(
-        tagCount: tagCount,
-        isSelected: groupByType == GroupByType.tag,
-        hasTagRecords: hasTagRecords,
-        context: context,
-      ));
+      tokens.add(
+        _buildTagToggles(
+          tagCount: tagCount,
+          isSelected: groupByType == GroupByType.tag,
+          hasTagRecords: hasTagRecords,
+          context: context,
+        ),
+      );
     }
 
     void addWalletsToggle() {
       if (!walletsEnabled) return;
       addSeparator();
-      tokens.add(_buildWalletToggles(
-        walletCount: walletCount,
-        isSelected: groupByType == GroupByType.wallet,
-        hasWalletRecords: hasWalletRecords,
-        context: context,
-      ));
+      tokens.add(
+        _buildWalletToggles(
+          walletCount: walletCount,
+          isSelected: groupByType == GroupByType.wallet,
+          hasWalletRecords: hasWalletRecords,
+          context: context,
+        ),
+      );
     }
 
     // Determine token order based on view type
@@ -124,7 +136,7 @@ class GroupByDropdown extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+      padding: const EdgeInsets.fromLTRB(10, 5, 10, 2),
       child: Wrap(
         spacing: 0,
         runSpacing: 4,
@@ -176,7 +188,7 @@ class GroupByDropdown extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 18,
+          fontSize: 15,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           color: isSelected ? null : Colors.grey,
         ),
@@ -198,10 +210,12 @@ class GroupByDropdown extends StatelessWidget {
     return InkWell(
       onTap: () {
         if (!hasTagRecords) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text("No tags found".i18n),
-            duration: Duration(seconds: 2),
-          ));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("No tags found".i18n),
+              duration: Duration(seconds: 2),
+            ),
+          );
           return;
         }
         onGroupByTypeChanged(GroupByType.tag);
@@ -209,7 +223,7 @@ class GroupByDropdown extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 18,
+          fontSize: 15,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           color: isSelected ? null : Colors.grey,
         ),
@@ -231,10 +245,12 @@ class GroupByDropdown extends StatelessWidget {
     return InkWell(
       onTap: () {
         if (!hasWalletRecords) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text("No wallets found".i18n),
-            duration: Duration(seconds: 2),
-          ));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("No wallets found".i18n),
+              duration: Duration(seconds: 2),
+            ),
+          );
           return;
         }
         onGroupByTypeChanged(GroupByType.wallet);
@@ -242,7 +258,7 @@ class GroupByDropdown extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 18,
+          fontSize: 15,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           color: isSelected ? null : Colors.grey,
         ),

@@ -58,19 +58,19 @@ class TabRecordsAppBar extends StatelessWidget {
       return SliverAppBar(
         elevation: 0,
         forceElevated: isSelectMode,
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: const Color(0xFFFFD21F),
         automaticallyImplyLeading: false,
         pinned: true,
         leading: isSelectMode
             ? IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                icon: const Icon(Icons.arrow_back, color: Color(0xFF202020)),
                 onPressed: onClose,
               )
             : (profileName.isNotEmpty ? _buildLeading() : null),
         title: isSelectMode
             ? Text(
                 "$selectedCount ${"selected".i18n}",
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Color(0xFF202020)),
               )
             : null,
         actions: isSelectMode ? _buildSelectionActions() : _buildActions(),
@@ -83,24 +83,24 @@ class TabRecordsAppBar extends StatelessWidget {
     return SliverAppBar(
       elevation: 0,
       forceElevated: isSelectMode,
-      backgroundColor: Theme.of(context).primaryColor,
+      backgroundColor: const Color(0xFFFFD21F),
       automaticallyImplyLeading: false,
       pinned: true,
-      expandedHeight: MediaQuery.of(context).size.height * 0.20 < 180.0
-          ? 180.0
-          : MediaQuery.of(context).size.height * 0.20,
+      expandedHeight: MediaQuery.of(context).size.height * 0.17 < 152.0
+          ? 152.0
+          : MediaQuery.of(context).size.height * 0.17,
       leading: isSelectMode
           ? IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF202020)),
               onPressed: onClose,
             )
           : (profileName.isNotEmpty && isAppBarExpanded)
-              ? _buildLeading()
-              : null,
+          ? _buildLeading()
+          : null,
       title: isSelectMode
           ? Text(
               "$selectedCount ${"selected".i18n}",
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: Color(0xFF202020)),
             )
           : null,
       actions: isSelectMode ? _buildSelectionActions() : _buildActions(),
@@ -112,7 +112,10 @@ class TabRecordsAppBar extends StatelessWidget {
         ],
         centerTitle: false,
         titlePadding: _getTitlePadding(
-            headerPaddingBottom, canShiftBack, canShiftForward),
+          headerPaddingBottom,
+          canShiftBack,
+          canShiftForward,
+        ),
         title: isSelectMode && !isAppBarExpanded
             ? null
             : _buildTitle(headerFontSize, canShiftBack, canShiftForward),
@@ -124,11 +127,14 @@ class TabRecordsAppBar extends StatelessWidget {
   /// Bottom row of the simplified app bar: the period text with its shift
   /// arrows, mirroring the search app bar's two-row (toolbar + bottom) shape.
   PreferredSizeWidget _buildBottomBar(
-      double headerFontSize, bool canShiftBack, bool canShiftForward) {
+    double headerFontSize,
+    bool canShiftBack,
+    bool canShiftForward,
+  ) {
     return PreferredSize(
-      preferredSize: const Size.fromHeight(48),
+      preferredSize: const Size.fromHeight(42),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 0, 5, 10),
+        padding: const EdgeInsets.fromLTRB(8, 0, 5, 7),
         child: _buildTitle(headerFontSize, canShiftBack, canShiftForward),
       ),
     );
@@ -164,8 +170,7 @@ class TabRecordsAppBar extends StatelessWidget {
               valueListenable: ServiceConfig.privacyModeHiddenNotifier,
               builder: (context, hidden, _) => StyledActionButton(
                 icon: hidden ? Icons.visibility_off : Icons.visibility,
-                onPressed: () =>
-                    ServiceConfig.setPrivacyModeHidden(!hidden),
+                onPressed: () => ServiceConfig.setPrivacyModeHidden(!hidden),
                 tooltip: hidden ? "Show amounts".i18n : "Hide amounts".i18n,
                 semanticsId: 'privacy-toggle',
                 scaleFactor: actionButtonScale,
@@ -217,14 +222,8 @@ class TabRecordsAppBar extends StatelessWidget {
           }
         },
         itemBuilder: (_) => [
-          PopupMenuItem(
-            value: 'select_all',
-            child: Text('Select all'.i18n),
-          ),
-          PopupMenuItem(
-            value: 'duplicate',
-            child: Text('Duplicate'.i18n),
-          ),
+          PopupMenuItem(value: 'select_all', child: Text('Select all'.i18n)),
+          PopupMenuItem(value: 'duplicate', child: Text('Duplicate'.i18n)),
           if (ServiceConfig.isPremium && ServiceConfig.walletsEnabled)
             PopupMenuItem(
               value: 'move_wallet',
@@ -236,7 +235,10 @@ class TabRecordsAppBar extends StatelessWidget {
   }
 
   Widget _buildTitle(
-      double headerFontSize, bool canShiftBack, bool canShiftForward) {
+    double headerFontSize,
+    bool canShiftBack,
+    bool canShiftForward,
+  ) {
     final bool showShiftButtons = simplifyAppBar || isAppBarExpanded;
     return Row(
       mainAxisAlignment: MainAxisAlignment.start,
@@ -250,7 +252,10 @@ class TabRecordsAppBar extends StatelessWidget {
               controller.header,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.left,
-              style: TextStyle(color: Colors.white, fontSize: headerFontSize),
+              style: TextStyle(
+                color: const Color(0xFF202020),
+                fontSize: headerFontSize,
+              ),
             ),
           ),
         ),
@@ -262,10 +267,10 @@ class TabRecordsAppBar extends StatelessWidget {
 
   Widget _buildShiftButton(IconData icon, int direction) {
     return SizedBox(
-      height: 30,
-      width: 30,
+      height: 28,
+      width: 28,
       child: IconButton(
-        icon: Icon(icon, color: Colors.white, size: 24),
+        icon: Icon(icon, color: const Color(0xFF202020), size: 22),
         onPressed: () => controller.shiftInterval(direction),
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(),
@@ -291,16 +296,19 @@ class TabRecordsAppBar extends StatelessWidget {
   }
 
   EdgeInsets _getTitlePadding(
-      double headerPaddingBottom, bool canShiftBack, bool canShiftForward) {
+    double headerPaddingBottom,
+    bool canShiftBack,
+    bool canShiftForward,
+  ) {
     if (!isAppBarExpanded) {
       // When collapsed the title sits in the toolbar alongside the leading
       // widget (56 dp) — use the standard Material offset (56 + 16 = 72) so
       // the text doesn't slide behind the profile circle.
-      return EdgeInsets.fromLTRB(15, 15, 15, headerPaddingBottom);
+      return EdgeInsets.fromLTRB(15, 10, 15, headerPaddingBottom);
     }
     return EdgeInsets.fromLTRB(
       canShiftBack ? 0 : 15,
-      15,
+      10,
       canShiftForward ? 0 : 15,
       headerPaddingBottom,
     );

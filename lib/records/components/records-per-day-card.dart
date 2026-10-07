@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:piggybank/helpers/datetime-utility-functions.dart';
 import 'package:piggybank/helpers/records-utility-functions.dart';
 import 'package:piggybank/i18n.dart';
+import 'package:piggybank/models/category-type.dart';
 import 'package:piggybank/models/record.dart';
 import 'package:piggybank/models/records-per-day.dart';
 import 'package:piggybank/models/wallet.dart';
@@ -14,6 +15,7 @@ import '../../components/category_icon_circle.dart';
 import '../../services/database/database-interface.dart';
 import '../../settings/constants/preferences-keys.dart';
 import '../../settings/preferences-utils.dart';
+import 'home_compact_metrics.dart';
 
 class RecordsPerDayCard extends StatefulWidget {
   /// RecordsCard renders a MovementPerDay object as a Card
@@ -35,14 +37,16 @@ class RecordsPerDayCard extends StatefulWidget {
   /// start a new entry pre-dated to that day). Null means no action.
   final void Function(DateTime date)? onDateTapped;
 
-  const RecordsPerDayCard(this._movementDay,
-      {this.onListBackCallback,
-      this.walletCurrencyMap = const {},
-      this.isSelectMode = false,
-      this.selectedRecordIds = const {},
-      this.onRecordLongPressed,
-      this.onRecordTapped,
-      this.onDateTapped});
+  const RecordsPerDayCard(
+    this._movementDay, {
+    this.onListBackCallback,
+    this.walletCurrencyMap = const {},
+    this.isSelectMode = false,
+    this.selectedRecordIds = const {},
+    this.onRecordLongPressed,
+    this.onRecordTapped,
+    this.onDateTapped,
+  });
 
   @override
   _RecordsPerDayCardState createState() => _RecordsPerDayCardState();
@@ -50,9 +54,15 @@ class RecordsPerDayCard extends StatefulWidget {
 
 class _RecordsPerDayCardState extends State<RecordsPerDayCard>
     with AutomaticKeepAliveClientMixin {
-  final _titleFontStyle = const TextStyle(fontSize: 18.0);
-  final _currencyFontStyle =
-      const TextStyle(fontSize: 18.0, fontWeight: FontWeight.normal);
+  final _titleFontStyle = const TextStyle(
+    fontSize: HomeCompactMetrics.recordTitle,
+    fontWeight: FontWeight.w700,
+    color: Color(0xFF282828),
+  );
+  final _currencyFontStyle = const TextStyle(
+    fontSize: HomeCompactMetrics.recordAmount,
+    fontWeight: FontWeight.w700,
+  );
 
   late int _numberOfNoteLinesToShow;
   late bool _visualiseTags;
@@ -72,8 +82,8 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
       for (final entry in _walletsById.entries)
         entry.key:
             (entry.value.currency != null && entry.value.currency!.isNotEmpty)
-                ? entry.value.currency
-                : defaultCurrency,
+            ? entry.value.currency
+            : defaultCurrency,
     };
   }
 
@@ -86,11 +96,17 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
   void _loadPreferences() {
     final prefs = ServiceConfig.sharedPreferences!;
     _numberOfNoteLinesToShow = PreferencesUtils.getOrDefault<int>(
-        prefs, PreferencesKeys.homepageRecordNotesVisible)!;
+      prefs,
+      PreferencesKeys.homepageRecordNotesVisible,
+    )!;
     _visualiseTags = PreferencesUtils.getOrDefault<bool>(
-        prefs, PreferencesKeys.visualiseTagsInMainPage)!;
+      prefs,
+      PreferencesKeys.visualiseTagsInMainPage,
+    )!;
     _showWalletInRecordList = PreferencesUtils.getOrDefault<bool>(
-        prefs, PreferencesKeys.showWalletInRecordList)!;
+      prefs,
+      PreferencesKeys.showWalletInRecordList,
+    )!;
   }
 
   Future<void> _loadWallets() async {
@@ -103,12 +119,13 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
       return;
     }
     final wallets = await _database.getAllWallets(
-        profileId: ProfileService.instance.activeProfileId);
+      profileId: ProfileService.instance.activeProfileId,
+    );
     if (!mounted) return;
     setState(() {
       _walletsById = {
         for (final w in wallets)
-          if (w.id != null) w.id!: w
+          if (w.id != null) w.id!: w,
       };
     });
   }
@@ -117,8 +134,9 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
       getRecordAmountColor(record, Theme.of(context).brightness);
 
   Widget _buildRecordAmountWidget(Record record) {
-    final wallet =
-        record.walletId != null ? _walletsById[record.walletId] : null;
+    final wallet = record.walletId != null
+        ? _walletsById[record.walletId]
+        : null;
 
     final effectiveMap = _effectiveCurrencyMap;
     // For destination-view copies, the received amount is in the destination
@@ -140,10 +158,13 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
     if (recordCurrency == null || recordCurrency.isEmpty) {
       content = Text(getCurrencyValueString(record.value), style: style);
     } else {
-      content = buildAmountWithCurrencyWidget(record.value!, recordCurrency,
-          mainStyle: style,
-          brightness: Theme.of(context).brightness,
-          neutralColor: color == null);
+      content = buildAmountWithCurrencyWidget(
+        record.value!,
+        recordCurrency,
+        mainStyle: style,
+        brightness: Theme.of(context).brightness,
+        neutralColor: color == null,
+      );
     }
 
     return ValueListenableBuilder<bool>(
@@ -153,90 +174,43 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
     );
   }
 
-  bool _dayHasMixedCurrencies(List<Record?> records) {
-    final effectiveMap = _effectiveCurrencyMap;
-    final currencies = <String?>{};
-    for (final r in records) {
-      if (r == null) continue;
-      final c = effectiveMap[r.walletId];
-      if (c != null && c.isNotEmpty) {
-        currencies.add(c);
-        if (currencies.length > 1) return true;
-      }
-    }
-    return currencies.length > 1;
-  }
+  Iterable<Record?> get _incomeRecords =>
+      (widget._movementDay.records ?? const <Record?>[]).where(
+        (record) =>
+            record != null &&
+            !record.isTransfer &&
+            record.category?.categoryType == CategoryType.income,
+      );
 
-  double _dayBalanceNumeric() {
-    final records = balanceRelevantRecords(widget._movementDay.records ?? []);
-    if (records.isEmpty) return 0.0;
-    final effectiveMap = _effectiveCurrencyMap;
-    if (!_dayHasMixedCurrencies(records)) {
-      return computeConvertedTotal(records, effectiveMap).total;
-    }
-    final defaultCurrency = getDefaultCurrency();
-    if (defaultCurrency != null) {
-      return computeTotalInCurrency(records, effectiveMap, defaultCurrency)
-          .total;
-    }
-    return computeConvertedTotal(records, effectiveMap).total;
-  }
-
-  String _formatDayBalance() {
-    final records = balanceRelevantRecords(widget._movementDay.records ?? []);
-    // A day made up entirely of transfers has nothing to sum into a
-    // meaningful balance — leave the header blank rather than show 0.
-    if (records.isEmpty) return '';
-
-    final effectiveMap = _effectiveCurrencyMap;
-    final allSameCurrency = !_dayHasMixedCurrencies(records);
-
-    if (allSameCurrency) {
-      final result = computeConvertedTotal(records, effectiveMap);
-      if (result.currency != null && result.currency!.isNotEmpty) {
-        return formatAmountWithCurrency(result.total, result.currency!);
-      }
-      final defaultCurrency = getDefaultCurrency();
-      if (defaultCurrency != null && defaultCurrency.isNotEmpty) {
-        return formatAmountWithCurrency(result.total, defaultCurrency);
-      }
-      return getCurrencyValueString(result.total);
-    } else {
-      // Mixed currencies — show only in default currency
-      final defaultCurrency = getDefaultCurrency();
-      if (defaultCurrency != null) {
-        final result =
-            computeTotalInCurrency(records, effectiveMap, defaultCurrency);
-        return formatCurrencyAmount(result.total, defaultCurrency);
-      }
-      return formatRecordsTotalResult(
-          computeConvertedTotal(records, effectiveMap));
-    }
-  }
+  Iterable<Record?> get _expenseRecords =>
+      (widget._movementDay.records ?? const <Record?>[]).where(
+        (record) =>
+            record != null &&
+            !record.isTransfer &&
+            record.category?.categoryType == CategoryType.expense,
+      );
 
   Widget _buildMovements() {
     /// Returns a ListView with all the movements contained in the MovementPerDay object
     return ListView.separated(
-        physics: const NeverScrollableScrollPhysics(),
-        shrinkWrap: true,
-        itemCount: widget._movementDay.records!.length,
-        separatorBuilder: (context, index) {
-          return Divider(
-            thickness: 0.5,
-            endIndent: 10,
-            indent: 10,
-          );
-        },
-        padding: const EdgeInsets.all(6.0),
-        itemBuilder: /*1*/ (context, i) {
-          return _buildMovementRow(widget._movementDay.records![i]!);
-        });
+      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
+      itemCount: widget._movementDay.records!.length,
+      separatorBuilder: (context, index) {
+        return const Divider(thickness: 0.5, endIndent: 16, indent: 58);
+      },
+      padding: EdgeInsets.zero,
+      itemBuilder: /*1*/ (context, i) {
+        return _buildMovementRow(widget._movementDay.records![i]!);
+      },
+    );
   }
 
   Widget _buildLeading(Record movement, bool isSelected) {
     final transferIcon = TransferIconService.icon;
     final transferEmoji = TransferIconService.iconEmoji;
-    final isUncategorizedTransfer = movement.isTransfer && movement.category == null;
+    final isUncategorizedTransfer =
+        movement.isTransfer && movement.category == null;
     final base = CategoryIconCircle(
       iconEmoji: isUncategorizedTransfer
           ? transferEmoji
@@ -248,16 +222,22 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
           ? TransferIconService.color
           : movement.category?.color,
       overlayIcon: movement.recurrencePatternId != null ? Icons.repeat : null,
-      topOverlayIcon: movement.isTransfer && movement.category != null &&
+      topOverlayIcon:
+          movement.isTransfer &&
+              movement.category != null &&
               transferEmoji == null
           ? transferIcon
           : null,
       topOverlayEmoji: movement.isTransfer && movement.category != null
           ? transferEmoji
           : null,
-      topOverlayBackgroundColor: movement.isTransfer && movement.category != null
+      topOverlayBackgroundColor:
+          movement.isTransfer && movement.category != null
           ? TransferIconService.color
           : null,
+      circleSize: HomeCompactMetrics.recordIconCircle,
+      mainIconSize: HomeCompactMetrics.recordIcon,
+      overlayIconSize: 13,
     );
     if (!widget.isSelectMode) return base;
     return Stack(
@@ -268,14 +248,14 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
           opacity: isSelected ? 1.0 : 0.0,
           duration: const Duration(milliseconds: 150),
           child: Container(
-            width: 42,
-            height: 42,
+            width: HomeCompactMetrics.recordIconCircle,
+            height: HomeCompactMetrics.recordIconCircle,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color:
-                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.88),
+              color: Theme.of(context).colorScheme.primary
+                  .withValues(alpha: 0.88),
             ),
-            child: const Icon(Icons.check, color: Colors.white, size: 20),
+            child: const Icon(Icons.check, color: Colors.white, size: 18),
           ),
         ),
       ],
@@ -285,45 +265,51 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
   Widget _buildMovementRow(Record movement) {
     /// Returns a ListTile rendering the single movement row
 
-    final isSelected = widget.isSelectMode &&
+    final isSelected =
+        widget.isSelectMode &&
         movement.id != null &&
         widget.selectedRecordIds.contains(movement.id);
     final canSelect = !movement.isFutureRecord && movement.id != null;
 
     final listTile = ListTile(
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -2),
+      minVerticalPadding: 4,
+      minTileHeight: HomeCompactMetrics.recordRowHeight,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      horizontalTitleGap: 12,
       onTap: widget.isSelectMode && canSelect
           ? () => widget.onRecordTapped?.call(movement.id!)
           : !widget.isSelectMode
-              ? () async {
-                  // Destination-view copies carry a modified value (received
-                  // amount, not original) — always edit the canonical DB record.
-                  final recordToEdit =
-                      movement.isDestinationTransferView && movement.id != null
-                          ? (await _database.getRecordById(movement.id!)) ??
-                              movement
-                          : movement;
-                  await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => EditRecordPage(
-                                passedRecord: recordToEdit,
-                                readOnly: movement.isFutureRecord,
-                              )));
-                  if (widget.onListBackCallback != null)
-                    await widget.onListBackCallback!();
-                }
-              : null,
+          ? () async {
+              // Destination-view copies carry a modified value (received
+              // amount, not original) — always edit the canonical DB record.
+              final recordToEdit =
+                  movement.isDestinationTransferView && movement.id != null
+                  ? (await _database.getRecordById(movement.id!)) ?? movement
+                  : movement;
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditRecordPage(
+                    passedRecord: recordToEdit,
+                    readOnly: movement.isFutureRecord,
+                  ),
+                ),
+              );
+              if (widget.onListBackCallback != null)
+                await widget.onListBackCallback!();
+            }
+          : null,
       onLongPress:
           widget.isSelectMode || movement.isFutureRecord || movement.id == null
-              ? null
-              : () => widget.onRecordLongPressed?.call(movement.id!),
+          ? null
+          : () => widget.onRecordLongPressed?.call(movement.id!),
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            movement.title == null || movement.title!.trim().isEmpty
-                ? movement.category?.name ?? "Transfer".i18n
-                : movement.title!,
+            _displayRecordTitle(movement),
             style: _titleFontStyle,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -332,11 +318,11 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
               movement.description != null &&
               movement.description!.trim().isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 4.0),
+              padding: const EdgeInsets.only(top: 2.0),
               child: Text(
                 movement.description!,
                 style: TextStyle(
-                  fontSize: 15.0, // Slightly smaller than title
+                  fontSize: HomeCompactMetrics.recordSecondary,
                   color: Theme.of(context)
                       .textTheme
                       .bodySmall
@@ -362,7 +348,7 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
                     ? "${_walletsById[movement.walletId]!.name} → ${_walletsById[movement.transferWalletId]!.name}"
                     : _walletsById[movement.walletId]!.name,
                 style: TextStyle(
-                  fontSize: 13.0,
+                  fontSize: HomeCompactMetrics.recordSecondary,
                   color: Theme.of(context).textTheme.bodySmall?.color,
                 ),
               ),
@@ -377,75 +363,73 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
 
     Widget result = Container(
       color: isSelected
-          ? Theme.of(context)
-              .colorScheme
-              .primaryContainer
-              .withValues(alpha: 0.4)
+          ? Theme.of(context).colorScheme.primaryContainer
+                .withValues(alpha: 0.4)
           : null,
       child: listTile,
     );
 
     // Apply reduced opacity for future records
     if (movement.isFutureRecord) {
-      return Opacity(
-        opacity: 0.5,
-        child: result,
-      );
+      return Opacity(opacity: 0.5, child: result);
     }
 
     return result;
   }
 
+  String _displayRecordTitle(Record movement) {
+    final title = movement.title?.trim();
+    if (title != null && title.isNotEmpty) return title;
+
+    final categoryName = movement.category?.name;
+    const defaultCategoryNames = {
+      'Transport': '交通',
+      'Food': '餐饮',
+      'House': '日用',
+    };
+    return defaultCategoryNames[categoryName] ??
+        categoryName?.i18n ??
+        'Transfer'.i18n;
+  }
+
   Widget _buildTagChipsRow(Set<String> tags) {
     return Padding(
-      padding: const EdgeInsets.only(top: 6.0),
+      padding: const EdgeInsets.only(top: 4.0),
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           List<Widget> tagChips = [];
           for (final tag in tags) {
             final chip = Container(
-                margin: EdgeInsets.symmetric(horizontal: 1),
-                child: Chip(
-                  label: Text(tag, style: TextStyle(fontSize: 12.0)),
-                  visualDensity: VisualDensity.compact,
-                ));
+              margin: EdgeInsets.symmetric(horizontal: 1),
+              child: Chip(
+                label: Text(tag, style: const TextStyle(fontSize: 11.0)),
+                visualDensity: VisualDensity.compact,
+              ),
+            );
             tagChips.add(chip);
           }
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: Row(
-              children: tagChips,
-            ),
+            child: Row(children: tagChips),
           );
         },
       ),
     );
   }
+
   /// Day header (day number plus weekday/month). Tapping it starts a new
   /// entry pre-dated to that day when [RecordsPerDayCard.onDateTapped] is set.
   Widget _buildDateHeader() {
+    final date = widget._movementDay.dateTime!;
     final content = Row(
       children: [
         Text(
-          widget._movementDay.dateTime!.day.toString(),
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          '${date.month}月${date.day}日 ${extractWeekdayString(date)}',
+          style: const TextStyle(
+            fontSize: HomeCompactMetrics.dayHeader,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 0, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(extractWeekdayString(widget._movementDay.dateTime!),
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.right),
-                Text(
-                    extractMonthString(widget._movementDay.dateTime!) +
-                        ' ' +
-                        extractYearString(widget._movementDay.dateTime!),
-                    style: TextStyle(fontSize: 13),
-                    textAlign: TextAlign.right)
-              ],
-            ))
       ],
     );
     final onDateTapped = widget.onDateTapped;
@@ -462,46 +446,93 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
     super.build(context);
     _loadPreferences();
     return Container(
-      margin: const EdgeInsets.fromLTRB(0, 5, 0, 5),
-      child: Container(
-          child: Column(
+      color: Theme.of(context).colorScheme.surface,
+      child: Column(
         children: <Widget>[
           Padding(
-              padding: const EdgeInsets.fromLTRB(15, 8, 8, 0),
-              child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildDateHeader(),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(0, 0, 22, 0),
-                      child: ValueListenableBuilder<bool>(
-                        valueListenable: ServiceConfig.privacyModeHiddenNotifier,
-                        builder: (context, hidden, _) {
-                          final dayBalance = _formatDayBalance();
-                          final style = TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.normal,
-                              color: getAmountColor(_dayBalanceNumeric(),
-                                  Theme.of(context).brightness));
-                          // Transfer-only days have no balance; keep them blank.
-                          if (hidden && dayBalance.isNotEmpty) {
-                            return obscuredAmountTextWidget(style);
-                          }
-                          return Text(
-                            dayBalance,
-                            style: style,
-                            overflow: TextOverflow.ellipsis,
-                          );
-                        },
-                      ),
-                    )
-                  ])),
-          new Divider(
-            thickness: 0.5,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildDateHeader(),
+                _DailyTotals(
+                  income: _incomeRecords,
+                  expenses: _expenseRecords,
+                  currencyMap: _effectiveCurrencyMap,
+                ),
+              ],
+            ),
           ),
+          const Divider(thickness: 0.5, height: 1),
           _buildMovements(),
         ],
-      )),
+      ),
+    );
+  }
+}
+
+class _DailyTotals extends StatelessWidget {
+  const _DailyTotals({
+    required this.income,
+    required this.expenses,
+    required this.currencyMap,
+  });
+
+  final Iterable<Record?> income;
+  final Iterable<Record?> expenses;
+  final Map<int, String?> currencyMap;
+
+  String _format(Iterable<Record?> records) =>
+      formatRecordsTotalResult(computeConvertedTotal(records, currencyMap));
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).colorScheme.onSurface
+        .withValues(alpha: 0.56);
+    return ValueListenableBuilder<bool>(
+      valueListenable: ServiceConfig.privacyModeHiddenNotifier,
+      builder: (context, hidden, _) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '收入 ',
+            style: TextStyle(
+              fontSize: HomeCompactMetrics.dayTotal,
+              color: muted,
+            ),
+          ),
+          hidden
+              ? obscuredAmountTextWidget(
+                  const TextStyle(fontSize: HomeCompactMetrics.dayTotal),
+                )
+              : Text(
+                  _format(income),
+                  style: const TextStyle(
+                    fontSize: HomeCompactMetrics.dayTotal,
+                    color: Color(0xFF278C63),
+                  ),
+                ),
+          const SizedBox(width: 6),
+          Text(
+            '支出 ',
+            style: TextStyle(
+              fontSize: HomeCompactMetrics.dayTotal,
+              color: muted,
+            ),
+          ),
+          hidden
+              ? obscuredAmountTextWidget(
+                  const TextStyle(fontSize: HomeCompactMetrics.dayTotal),
+                )
+              : Text(
+                  _format(expenses),
+                  style: const TextStyle(
+                    fontSize: HomeCompactMetrics.dayTotal,
+                    color: Color(0xFFC44848),
+                  ),
+                ),
+        ],
+      ),
     );
   }
 }

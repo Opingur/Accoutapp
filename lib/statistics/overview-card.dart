@@ -3,8 +3,10 @@ import 'package:piggybank/models/record.dart';
 import 'package:piggybank/statistics/statistics-models.dart';
 import 'package:piggybank/statistics/statistics-utils.dart';
 import 'package:piggybank/statistics/statistics-calculator.dart';
+
 import '../helpers/records-utility-functions.dart';
 import '../helpers/currency_breakdown_sheet.dart';
+
 import 'package:piggybank/i18n.dart';
 
 class OverviewCardAction {
@@ -43,30 +45,47 @@ class OverviewCard extends StatelessWidget {
   final RecordsTotalResult _convertedResult;
   final double _signedTotal;
 
-  OverviewCard(this.from, this.to, this.records, this.aggregationMethod,
-      {this.selectedAmount,
-      this.selectedDate,
-      this.selectedRecords = const [],
-      this.isBalance = false,
-      this.actions = const [],
-      this.walletCurrencyMap = const {}})
-      : aggregatedRecords = aggregateRecordsByDate(records, aggregationMethod),
-        _convertedResult = computeConvertedTotal(records, walletCurrencyMap,
-            isAbsValue: !isBalance),
-        _signedTotal = computeConvertedTotal(records, walletCurrencyMap).total;
+  OverviewCard(
+    this.from,
+    this.to,
+    this.records,
+    this.aggregationMethod, {
+    this.selectedAmount,
+    this.selectedDate,
+    this.selectedRecords = const [],
+    this.isBalance = false,
+    this.actions = const [],
+    this.walletCurrencyMap = const {},
+  }) : aggregatedRecords = aggregateRecordsByDate(records, aggregationMethod),
+       _convertedResult = computeConvertedTotal(
+         records,
+         walletCurrencyMap,
+         isAbsValue: !isBalance,
+       ),
+       _signedTotal = computeConvertedTotal(records, walletCurrencyMap).total;
 
   double get averageValue {
     switch (aggregationMethod) {
       case AggregationMethod.WEEK:
         // For WEEK: show daily average instead of weekly bin average
-        return StatisticsCalculator.calculateDailyAverage(records, from, to,
-            isBalance: isBalance, walletCurrencyMap: walletCurrencyMap);
+        return StatisticsCalculator.calculateDailyAverage(
+          records,
+          from,
+          to,
+          isBalance: isBalance,
+          walletCurrencyMap: walletCurrencyMap,
+        );
 
       default:
         // DAY, MONTH, and YEAR: keep existing period-based calculation
         return StatisticsCalculator.calculateAverage(
-            records, aggregationMethod, from, to,
-            isBalance: isBalance, walletCurrencyMap: walletCurrencyMap);
+          records,
+          aggregationMethod,
+          from,
+          to,
+          isBalance: isBalance,
+          walletCurrencyMap: walletCurrencyMap,
+        );
     }
   }
 
@@ -74,14 +93,24 @@ class OverviewCard extends StatelessWidget {
     switch (aggregationMethod) {
       case AggregationMethod.WEEK:
         // For WEEK: show daily median for consistency with daily average
-        return StatisticsCalculator.calculateDailyMedian(records, from, to,
-            isBalance: isBalance, walletCurrencyMap: walletCurrencyMap);
+        return StatisticsCalculator.calculateDailyMedian(
+          records,
+          from,
+          to,
+          isBalance: isBalance,
+          walletCurrencyMap: walletCurrencyMap,
+        );
 
       default:
         // DAY, MONTH, and YEAR: keep existing period-based calculation
         return StatisticsCalculator.calculateMedian(
-            records, aggregationMethod, from, to,
-            isBalance: isBalance, walletCurrencyMap: walletCurrencyMap);
+          records,
+          aggregationMethod,
+          from,
+          to,
+          isBalance: isBalance,
+          walletCurrencyMap: walletCurrencyMap,
+        );
     }
   }
 
@@ -98,12 +127,14 @@ class OverviewCard extends StatelessWidget {
   Widget _buildMainAmountWidget(BuildContext context, {Color? amountColor}) {
     final defaultCurrency = getDefaultCurrency();
     final mainStyle = Theme.of(context).textTheme.headlineMedium?.copyWith(
-          fontWeight: FontWeight.bold,
-          color: amountColor ?? Theme.of(context).colorScheme.onSurface,
-        );
+      fontWeight: FontWeight.bold,
+      color: amountColor ?? Theme.of(context).colorScheme.onSurface,
+    );
     final secondaryStyle = TextStyle(
-      fontSize:
-          ((mainStyle?.fontSize ?? 24.0) * 0.65).clamp(12.0, double.infinity),
+      fontSize: ((mainStyle?.fontSize ?? 24.0) * 0.65).clamp(
+        12.0,
+        double.infinity,
+      ),
       color: Colors.grey,
     );
 
@@ -119,11 +150,15 @@ class OverviewCard extends StatelessWidget {
           ? selectedRecords
           : (selectedDate != null ? _getSelectedRecords() : const []);
       final breakdown = selectionRecords.isNotEmpty
-          ? buildCurrencyBreakdown(selectionRecords, walletCurrencyMap,
-              isAbsValue: !isBalance)
+          ? buildCurrencyBreakdown(
+              selectionRecords,
+              walletCurrencyMap,
+              isAbsValue: !isBalance,
+            )
           : <String, double>{};
-      final nonEmpty =
-          breakdown.entries.where((e) => e.key.isNotEmpty).toList();
+      final nonEmpty = breakdown.entries
+          .where((e) => e.key.isNotEmpty)
+          .toList();
 
       if (nonEmpty.length == 1 &&
           defaultCurrency != null &&
@@ -132,54 +167,81 @@ class OverviewCard extends StatelessWidget {
         // Single secondary currency: show the converted (primary) amount on
         // the main line and the original (secondary) amount below it.
         final selOriginalAmount = nonEmpty.first.value.abs();
-        final converted =
-            convertAmount(selOriginalAmount, nonEmpty.first.key, defaultCurrency);
+        final converted = convertAmount(
+          selOriginalAmount,
+          nonEmpty.first.key,
+          defaultCurrency,
+        );
         if (converted != null) {
-          convertedAmountText =
-              formatCurrencyAmount(converted, defaultCurrency);
-          originalAmountText =
-              formatCurrencyAmount(selOriginalAmount, nonEmpty.first.key);
+          convertedAmountText = formatCurrencyAmount(
+            converted,
+            defaultCurrency,
+          );
+          originalAmountText = formatCurrencyAmount(
+            selOriginalAmount,
+            nonEmpty.first.key,
+          );
           originalAmountValue = selOriginalAmount;
         } else {
-          convertedAmountText =
-              formatCurrencyAmount(selOriginalAmount, nonEmpty.first.key);
+          convertedAmountText = formatCurrencyAmount(
+            selOriginalAmount,
+            nonEmpty.first.key,
+          );
         }
       } else if (selectionRecords.isNotEmpty) {
         // Multiple currencies (or a single currency matching the default):
         // show just the total expressed in the primary currency.
-        final total = computeConvertedTotal(selectionRecords, walletCurrencyMap,
-            isAbsValue: !isBalance);
+        final total = computeConvertedTotal(
+          selectionRecords,
+          walletCurrencyMap,
+          isAbsValue: !isBalance,
+        );
         if (total.currency != null && total.currency!.isNotEmpty) {
-          convertedAmountText = formatCurrencyAmount(total.total, total.currency!);
+          convertedAmountText = formatCurrencyAmount(
+            total.total,
+            total.currency!,
+          );
         } else {
           convertedAmountText = getCurrencyValueString(total.total);
         }
       } else if (_convertedResult.currency != null &&
           _convertedResult.currency!.isNotEmpty) {
-        convertedAmountText =
-            formatCurrencyAmount(selectedAmount!, _convertedResult.currency!);
+        convertedAmountText = formatCurrencyAmount(
+          selectedAmount!,
+          _convertedResult.currency!,
+        );
       } else {
         convertedAmountText = getCurrencyValueString(selectedAmount);
       }
     } else {
       // Overall total
-      final breakdown = buildCurrencyBreakdown(records, walletCurrencyMap,
-          isAbsValue: !isBalance);
-      final nonEmpty =
-          breakdown.entries.where((e) => e.key.isNotEmpty).toList();
+      final breakdown = buildCurrencyBreakdown(
+        records,
+        walletCurrencyMap,
+        isAbsValue: !isBalance,
+      );
+      final nonEmpty = breakdown.entries
+          .where((e) => e.key.isNotEmpty)
+          .toList();
       if (nonEmpty.length == 1 &&
           defaultCurrency != null &&
           defaultCurrency.isNotEmpty &&
           nonEmpty.first.key != defaultCurrency) {
-        convertedAmountText =
-            formatCurrencyAmount(_convertedResult.total, defaultCurrency);
-        originalAmountText =
-            formatCurrencyAmount(nonEmpty.first.value, nonEmpty.first.key);
+        convertedAmountText = formatCurrencyAmount(
+          _convertedResult.total,
+          defaultCurrency,
+        );
+        originalAmountText = formatCurrencyAmount(
+          nonEmpty.first.value,
+          nonEmpty.first.key,
+        );
         originalAmountValue = nonEmpty.first.value;
       } else if (_convertedResult.currency != null &&
           _convertedResult.currency!.isNotEmpty) {
         convertedAmountText = formatCurrencyAmount(
-            _convertedResult.total, _convertedResult.currency!);
+          _convertedResult.total,
+          _convertedResult.currency!,
+        );
       } else {
         convertedAmountText = formatRecordsTotalResult(_convertedResult);
       }
@@ -191,7 +253,8 @@ class OverviewCard extends StatelessWidget {
     final originalColor = originalAmountValue != null
         ? getAmountColor(
             isBalance ? originalAmountValue : _signedTotal,
-            Theme.of(context).brightness)
+            Theme.of(context).brightness,
+          )
         : null;
 
     Widget amountWidget;
@@ -201,10 +264,12 @@ class OverviewCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(convertedAmountText, style: mainStyle),
-          Text(originalAmountText,
-              style: originalColor != null
-                  ? secondaryStyle.copyWith(color: originalColor)
-                  : secondaryStyle),
+          Text(
+            originalAmountText,
+            style: originalColor != null
+                ? secondaryStyle.copyWith(color: originalColor)
+                : secondaryStyle,
+          ),
         ],
       );
     } else {
@@ -212,12 +277,16 @@ class OverviewCard extends StatelessWidget {
     }
 
     if (selectedAmount != null ||
-        !hasMixedCurrencies(records, walletCurrencyMap)) return amountWidget;
+        !hasMixedCurrencies(records, walletCurrencyMap))
+      return amountWidget;
 
     return GestureDetector(
       onTap: () => showCurrencyBreakdownSheet(
-          context, records, walletCurrencyMap,
-          isAbsValue: !isBalance),
+        context,
+        records,
+        walletCurrencyMap,
+        isAbsValue: !isBalance,
+      ),
       child: amountWidget,
     );
   }
@@ -230,23 +299,24 @@ class OverviewCard extends StatelessWidget {
   /// the color is driven by the sign of the underlying data (the signed total)
   /// to keep expenses red and income green.
   Widget _buildStatAmountLine(
-      BuildContext context, String labelKey, double value, String? currency) {
+    BuildContext context,
+    String labelKey,
+    double value,
+    String? currency,
+  ) {
     final brightness = Theme.of(context).brightness;
     final baseStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.color
-              ?.withAlpha(179),
-        );
+      color: Theme.of(context).textTheme.bodySmall?.color?.withAlpha(179),
+    );
     final idx = labelKey.indexOf('%s');
     final prefix = idx >= 0 ? labelKey.substring(0, idx) : labelKey;
     final suffix = idx >= 0 ? labelKey.substring(idx + 2) : '';
 
     final colorValue = isBalance ? value : _signedTotal;
     final amountColor = getAmountColor(colorValue, brightness);
-    final amountStyle =
-        amountColor == null ? null : TextStyle(color: amountColor);
+    final amountStyle = amountColor == null
+        ? null
+        : TextStyle(color: amountColor);
 
     final parts = currency != null && currency.isNotEmpty
         ? splitAmountConversion(value, currency)
@@ -254,20 +324,28 @@ class OverviewCard extends StatelessWidget {
     final amountSpans = <InlineSpan>[];
     if (parts != null) {
       amountSpans.add(TextSpan(text: parts.original, style: amountStyle));
-      amountSpans.add(TextSpan(text: ' (${parts.converted})', style: amountStyle));
+      amountSpans.add(
+        TextSpan(text: ' (${parts.converted})', style: amountStyle),
+      );
     } else {
-      amountSpans.add(TextSpan(
-        text: currency != null && currency.isNotEmpty
-            ? formatCurrencyAmount(value, currency)
-            : getCurrencyValueString(value),
-        style: amountStyle,
-      ));
+      amountSpans.add(
+        TextSpan(
+          text: currency != null && currency.isNotEmpty
+              ? formatCurrencyAmount(value, currency)
+              : getCurrencyValueString(value),
+          style: amountStyle,
+        ),
+      );
     }
 
     return Text.rich(
       TextSpan(
         style: baseStyle,
-        children: [TextSpan(text: prefix), ...amountSpans, TextSpan(text: suffix)],
+        children: [
+          TextSpan(text: prefix),
+          ...amountSpans,
+          TextSpan(text: suffix),
+        ],
       ),
     );
   }
@@ -280,12 +358,17 @@ class OverviewCard extends StatelessWidget {
     final average = averageValue;
     final median = medianValue;
 
-    final breakdown = buildCurrencyBreakdown(records, walletCurrencyMap,
-        isAbsValue: !isBalance);
-    final nonEmptyCurrencies =
-        breakdown.entries.where((e) => e.key.isNotEmpty).toList();
-    final originalCurrency =
-        nonEmptyCurrencies.length == 1 ? nonEmptyCurrencies.first.key : null;
+    final breakdown = buildCurrencyBreakdown(
+      records,
+      walletCurrencyMap,
+      isAbsValue: !isBalance,
+    );
+    final nonEmptyCurrencies = breakdown.entries
+        .where((e) => e.key.isNotEmpty)
+        .toList();
+    final originalCurrency = nonEmptyCurrencies.length == 1
+        ? nonEmptyCurrencies.first.key
+        : null;
 
     String averageLabelKey;
     String medianLabelKey;
@@ -315,7 +398,7 @@ class OverviewCard extends StatelessWidget {
         amountColor ?? (_signedTotal >= 0 ? Colors.green : Colors.redAccent);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
+      padding: const EdgeInsets.symmetric(vertical: 11.0, horizontal: 16.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -326,27 +409,35 @@ class OverviewCard extends StatelessWidget {
                 _buildMainAmountWidget(context, amountColor: amountColor),
                 const SizedBox(height: 2),
                 _buildStatAmountLine(
-                    context, averageLabelKey, average, originalCurrency),
+                  context,
+                  averageLabelKey,
+                  average,
+                  originalCurrency,
+                ),
                 const SizedBox(height: 2),
                 _buildStatAmountLine(
-                    context, medianLabelKey, median, originalCurrency),
+                  context,
+                  medianLabelKey,
+                  median,
+                  originalCurrency,
+                ),
               ],
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           if (actions.isNotEmpty)
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 for (int i = 0; i < actions.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 8),
+                  if (i > 0) const SizedBox(width: 6),
                   Tooltip(
                     message: actions[i].tooltip ?? '',
                     child: InkWell(
                       onTap: actions[i].onTap,
                       borderRadius: BorderRadius.circular(30),
                       child: Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(9),
                         decoration: BoxDecoration(
                           color: (actions[i].color ?? color).withAlpha(26),
                           shape: BoxShape.circle,
@@ -355,14 +446,16 @@ class OverviewCard extends StatelessWidget {
                           duration: const Duration(milliseconds: 300),
                           transitionBuilder:
                               (Widget child, Animation<double> animation) {
-                            return ScaleTransition(
-                                scale: animation, child: child);
-                          },
+                                return ScaleTransition(
+                                  scale: animation,
+                                  child: child,
+                                );
+                              },
                           child: Icon(
                             actions[i].icon,
                             key: ValueKey<int>(i),
                             color: actions[i].color ?? color,
-                            size: 36,
+                            size: 28,
                           ),
                         ),
                       ),

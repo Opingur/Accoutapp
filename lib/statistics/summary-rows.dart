@@ -64,10 +64,11 @@ abstract class SummaryRow extends StatelessWidget {
     final percentage = (100 * value.abs()) / totalSum;
     final percentageBar = value.abs() / maxSum;
     final percentageStr = percentage.toStringAsFixed(2);
-    final biggerFont = const TextStyle(fontSize: 16.0);
-    final secondaryFont = const TextStyle(fontSize: 14.0, color: Colors.grey);
+    final biggerFont = const TextStyle(fontSize: 14.0);
+    final secondaryFont = const TextStyle(fontSize: 12.0, color: Colors.grey);
 
-    final bool hasCurrencyConversion = currency != null &&
+    final bool hasCurrencyConversion =
+        currency != null &&
         currency!.isNotEmpty &&
         originalCurrency != null &&
         originalCurrency!.isNotEmpty &&
@@ -75,29 +76,40 @@ abstract class SummaryRow extends StatelessWidget {
 
     Widget amountWidget;
     if (hasCurrencyConversion) {
-      final originalStr =
-          formatCurrencyAmount(originalValue.abs(), originalCurrency!);
+      final originalStr = formatCurrencyAmount(
+        originalValue.abs(),
+        originalCurrency!,
+      );
       final convertedStr = formatCurrencyAmount(value.abs(), currency!);
-      final primaryText =
-          showPercentage ? '$convertedStr ($percentageStr%)' : convertedStr;
+      final primaryText = showPercentage
+          ? '$convertedStr ($percentageStr%)'
+          : convertedStr;
       final primaryColor = getAmountColor(
-          signedValue ?? value, Theme.of(context).brightness);
+        signedValue ?? value,
+        Theme.of(context).brightness,
+      );
       final secondaryColor = getAmountColor(
-          signedOriginalValue ?? originalValue, Theme.of(context).brightness);
+        signedOriginalValue ?? originalValue,
+        Theme.of(context).brightness,
+      );
       amountWidget = Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(primaryText,
-              style: primaryColor != null
-                  ? biggerFont.copyWith(color: primaryColor)
-                  : biggerFont,
-              textAlign: TextAlign.right),
-          Text(originalStr,
-              style: secondaryColor != null
-                  ? secondaryFont.copyWith(color: secondaryColor)
-                  : secondaryFont,
-              textAlign: TextAlign.right),
+          Text(
+            primaryText,
+            style: primaryColor != null
+                ? biggerFont.copyWith(color: primaryColor)
+                : biggerFont,
+            textAlign: TextAlign.right,
+          ),
+          Text(
+            originalStr,
+            style: secondaryColor != null
+                ? secondaryFont.copyWith(color: secondaryColor)
+                : secondaryFont,
+            textAlign: TextAlign.right,
+          ),
         ],
       );
     } else {
@@ -110,7 +122,9 @@ abstract class SummaryRow extends StatelessWidget {
       // Colorize by sign (red for expenses, green for income) using the real
       // signed value, matching the rest of the colorized amounts in the app.
       final amountColor = getAmountColor(
-          signedValue ?? value, Theme.of(context).brightness);
+        signedValue ?? value,
+        Theme.of(context).brightness,
+      );
       amountWidget = Text(
         showPercentage ? '$valueStr ($percentageStr%)' : valueStr,
         style: amountColor != null
@@ -131,10 +145,7 @@ abstract class SummaryRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Container(
-            margin: EdgeInsets.only(left: 5),
-            child: amountWidget,
-          ),
+          Container(margin: EdgeInsets.only(left: 5), child: amountWidget),
         ],
       ),
     ];
@@ -142,7 +153,7 @@ abstract class SummaryRow extends StatelessWidget {
     if (showProgressBar) {
       columnChildren.add(
         Container(
-          padding: EdgeInsets.fromLTRB(0, 8, 0, 0),
+          padding: EdgeInsets.fromLTRB(0, 5, 0, 0),
           child: SizedBox(
             height: 2,
             child: LinearProgressIndicator(
@@ -156,12 +167,12 @@ abstract class SummaryRow extends StatelessWidget {
 
     return ListTile(
       onTap: () => onTap(context),
-      contentPadding: EdgeInsets.symmetric(horizontal: 16.0),
-      horizontalTitleGap: 16.0,
-      minLeadingWidth: 40.0,
-      title: Column(
-        children: columnChildren,
-      ),
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -2),
+      contentPadding: EdgeInsets.symmetric(horizontal: 12.0),
+      horizontalTitleGap: 12.0,
+      minLeadingWidth: 34.0,
+      title: Column(children: columnChildren),
       leading: buildLeading(context),
     );
   }
@@ -192,20 +203,20 @@ class CategorySummaryRow extends SummaryRow {
     double originalValue = 0.0,
     String? originalCurrency,
   }) : super(
-          key: key,
-          label: category.name!,
-          value: value,
-          maxSum: maxSum,
-          totalSum: totalSum,
-          records: records,
-          from: from,
-          to: to,
-          selectedDate: selectedDate,
-          aggregationMethod: aggregationMethod,
-          currency: currency,
-          originalValue: originalValue,
-          originalCurrency: originalCurrency,
-        );
+         key: key,
+         label: category.name!,
+         value: value,
+         maxSum: maxSum,
+         totalSum: totalSum,
+         records: records,
+         from: from,
+         to: to,
+         selectedDate: selectedDate,
+         aggregationMethod: aggregationMethod,
+         currency: currency,
+         originalValue: originalValue,
+         originalCurrency: originalCurrency,
+       );
 
   @override
   Widget buildLeading(BuildContext context) {
@@ -214,6 +225,9 @@ class CategorySummaryRow extends SummaryRow {
       iconDataFromDefaultIconSet: category.icon,
       backgroundColor: category.color,
       overlayIcon: category.isArchived ? Icons.archive : null,
+      circleSize: 34,
+      mainIconSize: 17,
+      overlayIconSize: 12,
     );
   }
 
@@ -284,33 +298,33 @@ class TagSummaryRow extends SummaryRow {
     double? signedValue,
     double? signedOriginalValue,
   }) : super(
-          key: key,
-          label: tag,
-          value: value,
-          maxSum: maxSum,
-          totalSum: totalSum,
-          records: records,
-          from: from,
-          to: to,
-          selectedDate: selectedDate,
-          aggregationMethod: aggregationMethod,
-          currency: currency,
-          originalValue: originalValue,
-          originalCurrency: originalCurrency,
-          signedValue: signedValue,
-          signedOriginalValue: signedOriginalValue,
-        );
+         key: key,
+         label: tag,
+         value: value,
+         maxSum: maxSum,
+         totalSum: totalSum,
+         records: records,
+         from: from,
+         to: to,
+         selectedDate: selectedDate,
+         aggregationMethod: aggregationMethod,
+         currency: currency,
+         originalValue: originalValue,
+         originalCurrency: originalCurrency,
+         signedValue: signedValue,
+         signedOriginalValue: signedOriginalValue,
+       );
 
   @override
   Widget buildLeading(BuildContext context) {
     return Container(
-      width: 40,
-      height: 40,
+      width: 34,
+      height: 34,
       decoration: BoxDecoration(
         color: Colors.blue.shade100,
         shape: BoxShape.circle,
       ),
-      child: Icon(Icons.label, color: Colors.blue, size: 20),
+      child: Icon(Icons.label, color: Colors.blue, size: 17),
     );
   }
 
@@ -384,17 +398,17 @@ class ViewAllSummaryRow extends SummaryRow {
     double originalValue = 0.0,
     String? originalCurrency,
   }) : super(
-          label: label,
-          value: totalAmount,
-          maxSum: totalAmount,
-          totalSum: totalAmount,
-          records: records,
-          showPercentage: false,
-          showProgressBar: false,
-          currency: currency,
-          originalValue: originalValue,
-          originalCurrency: originalCurrency,
-        );
+         label: label,
+         value: totalAmount,
+         maxSum: totalAmount,
+         totalSum: totalAmount,
+         records: records,
+         showPercentage: false,
+         showProgressBar: false,
+         currency: currency,
+         originalValue: originalValue,
+         originalCurrency: originalCurrency,
+       );
 
   @override
   Widget buildLeading(BuildContext context) {
@@ -402,6 +416,8 @@ class ViewAllSummaryRow extends SummaryRow {
       iconEmoji: null,
       iconDataFromDefaultIconSet: Icons.align_horizontal_left,
       backgroundColor: Colors.yellow.shade700,
+      circleSize: 34,
+      mainIconSize: 17,
     );
   }
 
@@ -432,22 +448,22 @@ class WalletSummaryRow extends SummaryRow {
     double? signedValue,
     double? signedOriginalValue,
   }) : super(
-          key: key,
-          label: wallet.name,
-          value: value,
-          maxSum: maxSum,
-          totalSum: totalSum,
-          records: records,
-          from: from,
-          to: to,
-          selectedDate: selectedDate,
-          aggregationMethod: aggregationMethod,
-          currency: currency,
-          originalValue: originalValue,
-          originalCurrency: originalCurrency,
-          signedValue: signedValue,
-          signedOriginalValue: signedOriginalValue,
-        );
+         key: key,
+         label: wallet.name,
+         value: value,
+         maxSum: maxSum,
+         totalSum: totalSum,
+         records: records,
+         from: from,
+         to: to,
+         selectedDate: selectedDate,
+         aggregationMethod: aggregationMethod,
+         currency: currency,
+         originalValue: originalValue,
+         originalCurrency: originalCurrency,
+         signedValue: signedValue,
+         signedOriginalValue: signedOriginalValue,
+       );
 
   @override
   Widget buildLeading(BuildContext context) {
@@ -455,13 +471,16 @@ class WalletSummaryRow extends SummaryRow {
       iconEmoji: wallet.iconEmoji,
       iconDataFromDefaultIconSet: wallet.icon,
       backgroundColor: wallet.color,
+      circleSize: 34,
+      mainIconSize: 17,
     );
   }
 
   @override
   void onTap(BuildContext context) {
-    final walletRecords =
-        records.where((element) => element?.walletId == wallet.id).toList();
+    final walletRecords = records
+        .where((element) => element?.walletId == wallet.id)
+        .toList();
 
     DateTime? detailFrom = from;
     DateTime? detailTo = to;
