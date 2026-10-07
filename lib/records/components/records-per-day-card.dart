@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:piggybank/categories/category-display-name.dart';
 import 'package:piggybank/helpers/datetime-utility-functions.dart';
 import 'package:piggybank/helpers/records-utility-functions.dart';
 import 'package:piggybank/i18n.dart';
@@ -361,11 +362,11 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
       leading: _buildLeading(movement, isSelected),
     );
 
-    Widget result = Container(
+    Widget result = Material(
       color: isSelected
           ? Theme.of(context).colorScheme.primaryContainer
                 .withValues(alpha: 0.4)
-          : null,
+          : Theme.of(context).colorScheme.surface,
       child: listTile,
     );
 
@@ -381,15 +382,9 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
     final title = movement.title?.trim();
     if (title != null && title.isNotEmpty) return title;
 
-    final categoryName = movement.category?.name;
-    const defaultCategoryNames = {
-      'Transport': '交通',
-      'Food': '餐饮',
-      'House': '日用',
-    };
-    return defaultCategoryNames[categoryName] ??
-        categoryName?.i18n ??
-        'Transfer'.i18n;
+    return movement.category == null
+        ? 'Transfer'.i18n
+        : categoryDisplayName(movement.category);
   }
 
   Widget _buildTagChipsRow(Set<String> tags) {
@@ -421,6 +416,9 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
   /// entry pre-dated to that day when [RecordsPerDayCard.onDateTapped] is set.
   Widget _buildDateHeader() {
     final date = widget._movementDay.dateTime!;
+    final headerKey = ValueKey(
+      'records-day-header-${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+    );
     final content = Row(
       children: [
         Text(
@@ -433,8 +431,11 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
       ],
     );
     final onDateTapped = widget.onDateTapped;
-    if (onDateTapped == null) return content;
+    if (onDateTapped == null) {
+      return KeyedSubtree(key: headerKey, child: content);
+    }
     return InkWell(
+      key: headerKey,
       onTap: () => onDateTapped(widget._movementDay.dateTime!),
       borderRadius: BorderRadius.circular(4),
       child: content,
@@ -445,7 +446,7 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
   Widget build(BuildContext context) {
     super.build(context);
     _loadPreferences();
-    return Container(
+    return Material(
       color: Theme.of(context).colorScheme.surface,
       child: Column(
         children: <Widget>[

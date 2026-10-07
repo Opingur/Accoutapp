@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:piggybank/models/category.dart';
 import 'package:piggybank/records/edit-record-page.dart';
 
+import 'category-display-name.dart';
 import 'category-ordering.dart';
 
 class CategoriesGrid extends StatelessWidget {
@@ -62,7 +63,7 @@ class CategoriesGrid extends StatelessWidget {
             ),
             const SizedBox(height: 5),
             Text(
-              category.name ?? '',
+              categoryDisplayName(category),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,

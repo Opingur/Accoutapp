@@ -1,139 +1,81 @@
 import 'package:flutter/material.dart';
-import 'package:piggybank/helpers/datetime-utility-functions.dart';
-import 'package:piggybank/models/category-type.dart';
 import 'package:piggybank/models/record.dart';
 import 'package:piggybank/models/wallet.dart';
-import 'package:piggybank/statistics/statistics-tab-page.dart';
-import 'package:piggybank/statistics/balance-tab-page.dart';
-import 'package:piggybank/i18n.dart';
+import 'package:piggybank/services/profile-service.dart';
+import 'package:piggybank/services/service-config.dart';
+import 'package:piggybank/statistics/compact-statistics-page.dart';
 
+/// Root statistics tab. Its internal week/month/year control is state only,
+/// not a route, so switching root tabs never grows the Navigator stack.
 class StatisticsPage extends StatefulWidget {
-  final List<Record?> records;
+  const StatisticsPage(
+    this.from,
+    this.to,
+    this.initialRecords, {
+    super.key,
+    this.walletCurrencyMap = const {},
+    this.walletMap = const {},
+  });
+
+  /// Kept for existing detail callers. The shell root omits these fields and
+  /// loads the active profile itself.
   final DateTime? from;
   final DateTime? to;
+  final List<Record?>? initialRecords;
   final Map<int, String?> walletCurrencyMap;
   final Map<int, Wallet> walletMap;
-  StatisticsPage(this.from, this.to, this.records,
-      {this.walletCurrencyMap = const {}, this.walletMap = const {}});
 
   @override
-  _StatisticsPageState createState() => _StatisticsPageState();
+  StatisticsPageState createState() => StatisticsPageState();
 }
 
-class _StatisticsPageState extends State<StatisticsPage>
-    with SingleTickerProviderStateMixin {
-  String? _selectedIntervalTitle;
-  DateTime? _selectedDate;
-  late TabController _tabController;
+class StatisticsPageState extends State<StatisticsPage> {
+  List<Record?>? _records;
+  Map<int, String?> _walletCurrencyMap = const {};
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(_handleTabSelection);
-  }
-
-  @override
-  void dispose() {
-    _tabController.removeListener(_handleTabSelection);
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  void _handleTabSelection() {
-    if (_tabController.indexIsChanging) {
-      setState(() {
-        _selectedIntervalTitle = null;
-        _selectedDate = null;
-      });
+    if (widget.initialRecords != null) {
+      _records = widget.initialRecords;
+      _walletCurrencyMap = widget.walletCurrencyMap;
+    } else {
+      refresh();
     }
+  }
+
+  /// Reloads persisted data after the add-record flow returns while keeping
+  /// this root tab and its selected statistics period alive.
+  Future<void> refresh() async {
+    final profileId = ProfileService.instance.activeProfileId;
+    final records = await ServiceConfig.database.getAllRecords(
+      profileId: profileId,
+    );
+    final wallets = await ServiceConfig.database.getAllWallets(
+      profileId: profileId,
+    );
+    if (!mounted) return;
+    setState(() {
+      _records = records;
+      _walletCurrencyMap = {
+        for (final wallet in wallets)
+          if (wallet.id != null) wallet.id!: wallet.currency,
+      };
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    String title =
-        _selectedIntervalTitle ?? getDateRangeStr(widget.from!, widget.to!);
-
-    return Scaffold(
-      body: NestedScrollView(
-        headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
-          return <Widget>[
-            SliverAppBar(
-              title: Text(title),
-              pinned: false,
-              floating: false,
-              snap: false,
-              forceElevated: innerBoxIsScrolled,
-              bottom: TabBar(
-                controller: _tabController,
-                tabs: [
-                  Tab(text: "Expenses".i18n.toUpperCase()),
-                  Tab(text: "Income".i18n.toUpperCase()),
-                  Tab(text: "Balance".i18n.toUpperCase()),
-                ],
-              ),
-            ),
-          ];
-        },
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            StatisticsTabPage(
-              widget.from,
-              widget.to,
-              widget.records
-                  .where((element) =>
-                      element?.category?.categoryType == CategoryType.expense &&
-                      !element!.isTransfer)
-                  .toList(),
-              selectedDate: _selectedDate,
-              showRecordsToggle: true,
-              walletCurrencyMap: widget.walletCurrencyMap,
-              walletMap: widget.walletMap,
-              onIntervalSelected: (newTitle, date, amount) {
-                setState(() {
-                  _selectedIntervalTitle = newTitle;
-                  _selectedDate = date;
-                });
-              },
-            ),
-            StatisticsTabPage(
-              widget.from,
-              widget.to,
-              widget.records
-                  .where((element) =>
-                      element?.category?.categoryType == CategoryType.income &&
-                      !element!.isTransfer)
-                  .toList(),
-              selectedDate: _selectedDate,
-              showRecordsToggle: true,
-              walletCurrencyMap: widget.walletCurrencyMap,
-              walletMap: widget.walletMap,
-              onIntervalSelected: (newTitle, date, amount) {
-                setState(() {
-                  _selectedIntervalTitle = newTitle;
-                  _selectedDate = date;
-                });
-              },
-            ),
-            BalanceTabPage(
-              widget.from,
-              widget.to,
-              widget.records.where((element) => !element!.isTransfer).toList(),
-              selectedDate: _selectedDate,
-              showRecordsToggle: true,
-              walletCurrencyMap: widget.walletCurrencyMap,
-              walletMap: widget.walletMap,
-              onIntervalSelected: (newTitle, date) {
-                setState(() {
-                  _selectedIntervalTitle = newTitle;
-                  _selectedDate = date;
-                });
-              },
-            ),
-          ],
-        ),
-      ),
+    final records = _records;
+    if (records == null) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return CompactStatisticsPage(
+      records: records,
+      walletCurrencyMap: _walletCurrencyMap,
     );
   }
 }

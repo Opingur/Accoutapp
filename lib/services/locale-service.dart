@@ -10,12 +10,18 @@ import 'package:piggybank/settings/preferences-utils.dart';
 import '../settings/constants/preferences-defaults-values.dart';
 
 class LocaleService {
-  static final Locale DEFAULT_LOCALE =
-      const Locale.fromSubtags(languageCode: 'en', countryCode: "US");
-  static final Locale VENETIAN_LOCALE =
-      const Locale.fromSubtags(languageCode: 'vec', countryCode: "IT");
-  static final Locale ITALIAN_LOCALE =
-      const Locale.fromSubtags(languageCode: 'it');
+  static final Locale CHINESE_LOCALE = const Locale.fromSubtags(
+    languageCode: 'zh',
+    countryCode: 'CN',
+  );
+  static final Locale DEFAULT_LOCALE = CHINESE_LOCALE;
+  static final Locale VENETIAN_LOCALE = const Locale.fromSubtags(
+    languageCode: 'vec',
+    countryCode: "IT",
+  );
+  static final Locale ITALIAN_LOCALE = const Locale.fromSubtags(
+    languageCode: 'it',
+  );
 
   static final List<Locale> supportedLocales = [
     DEFAULT_LOCALE,
@@ -41,7 +47,7 @@ class LocaleService {
     const Locale.fromSubtags(languageCode: 'tr'),
     const Locale.fromSubtags(languageCode: 'uk', countryCode: "UA"),
     VENETIAN_LOCALE,
-    const Locale.fromSubtags(languageCode: 'zh', countryCode: "CN"),
+    CHINESE_LOCALE,
     const Locale.fromSubtags(languageCode: 'pt', countryCode: "BR"),
     const Locale.fromSubtags(languageCode: 'pt', countryCode: "PT"),
   ];
@@ -67,13 +73,8 @@ class LocaleService {
       return localeFromUserPreferences;
     }
 
-    // no match from user-preferences, use device locales
-    Locale? localeFromDeviceSettings = getLocaleFromDeviceSettings();
-    if (localeFromDeviceSettings != null) {
-      return localeFromDeviceSettings;
-    }
-
-    // still no match, return default
+    // Oinkoin's user-facing default is Simplified Chinese. A user can still
+    // explicitly choose another supported language from settings.
     return DEFAULT_LOCALE;
   }
 
@@ -98,15 +99,18 @@ class LocaleService {
       // set Italian, then.
       if (localeFromUserPreferences == VENETIAN_LOCALE) {
         MyI18n.replaceTranslations(
-            ITALIAN_LOCALE.toLanguageTag(), VENETIAN_LOCALE.toLanguageTag());
+          ITALIAN_LOCALE.toLanguageTag(),
+          VENETIAN_LOCALE.toLanguageTag(),
+        );
         localeFromUserPreferences = ITALIAN_LOCALE;
       }
 
       // validate that it a supported language
       if (!supportedLocales.contains(localeFromUserPreferences)) {
         // try with the language-code only
-        localeFromUserPreferences =
-            Locale(localeFromUserPreferences.languageCode);
+        localeFromUserPreferences = Locale(
+          localeFromUserPreferences.languageCode,
+        );
         if (!supportedLocales.contains(localeFromUserPreferences)) {
           // no luck
           localeFromUserPreferences = null;
@@ -143,8 +147,9 @@ class LocaleService {
     }
 
     ServiceConfig.currencyLocale = toSet;
-    ServiceConfig.currencyNumberFormat =
-        getNumberFormatWithCustomizations(locale: toSet);
+    ServiceConfig.currencyNumberFormat = getNumberFormatWithCustomizations(
+      locale: toSet,
+    );
     ServiceConfig.currencyNumberFormatWithoutGrouping =
         getNumberFormatWithCustomizations(locale: toSet, turnOffGrouping: true);
 
@@ -175,8 +180,9 @@ class LocaleService {
         .containsKey(PreferencesKeys.overwriteDotValueWithComma);
     if (userDefinedOverwriteDotWithComma && getDecimalSeparator() != ",") {
       // overwriteDotValueWithComma possible just when decimal separator is ,
-      ServiceConfig.sharedPreferences
-          ?.remove(PreferencesKeys.overwriteDotValueWithComma);
+      ServiceConfig.sharedPreferences?.remove(
+        PreferencesKeys.overwriteDotValueWithComma,
+      );
     }
   }
 }

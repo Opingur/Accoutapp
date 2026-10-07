@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:piggybank/models/category.dart';
+import 'package:piggybank/categories/category-display-name.dart';
 import 'package:piggybank/models/record.dart';
 import 'package:piggybank/models/wallet.dart';
 import 'package:piggybank/components/category_icon_circle.dart';
@@ -204,7 +205,7 @@ class CategorySummaryRow extends SummaryRow {
     String? originalCurrency,
   }) : super(
          key: key,
-         label: category.name!,
+         label: categoryDisplayName(category),
          value: value,
          maxSum: maxSum,
          totalSum: totalSum,
@@ -262,7 +263,7 @@ class CategorySummaryRow extends SummaryRow {
       context,
       MaterialPageRoute(
         builder: (context) => CategoryTagRecordsPage(
-          title: "$intervalTitle: ${category.name}",
+          title: "$intervalTitle: ${categoryDisplayName(category)}",
           records: detailRecords,
           from: detailFrom,
           to: detailTo,

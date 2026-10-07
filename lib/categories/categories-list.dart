@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:piggybank/categories/category-ordering.dart';
+import 'package:piggybank/categories/category-display-name.dart';
 import 'package:piggybank/categories/edit-category-page.dart';
 import 'package:piggybank/models/category.dart';
 
@@ -43,7 +44,10 @@ class CategoriesList extends StatelessWidget {
         backgroundColor: category.color,
         overlayIcon: category.isArchived ? Icons.archive : null,
       ),
-      title: Text(category.name ?? '', style: const TextStyle(fontSize: 16)),
+      title: Text(
+        categoryDisplayName(category),
+        style: const TextStyle(fontSize: 16),
+      ),
       subtitle: category.isSystem ? const Text('系统分类') : null,
       trailing: category.isSystem
           ? const Icon(Icons.lock_outline, size: 18)

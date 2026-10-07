@@ -25,7 +25,10 @@ class TabRecords extends StatefulWidget {
   /// MovementsPage is the page showing the list of movements grouped per day.
   /// It contains also buttons for filtering the list of movements and add a new movement.
 
-  TabRecords({Key? key}) : super(key: key);
+  const TabRecords({super.key, this.onStatisticsRequested});
+
+  /// Shell-owned root-tab selection. This deliberately does not push a page.
+  final VoidCallback? onStatisticsRequested;
 
   @override
   TabRecordsState createState() => TabRecordsState();
@@ -156,9 +159,8 @@ class TabRecordsState extends State<TabRecords> {
     } catch (e, st) {
       _logger.handle(e, st, 'Error during batch delete');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error deleting records: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('删除账单失败：$e')));
       }
     }
   }
@@ -188,9 +190,8 @@ class TabRecordsState extends State<TabRecords> {
     } catch (e, st) {
       _logger.handle(e, st, 'Error during batch duplicate');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error duplicating records: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('复制账单失败：$e')));
       }
     }
   }
@@ -234,7 +235,7 @@ class TabRecordsState extends State<TabRecords> {
       _logger.handle(e, st, 'Error during batch move to wallet');
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error moving records: $e')));
+            .showSnackBar(SnackBar(content: Text('移动账单失败：$e')));
       }
     }
   }
@@ -382,7 +383,7 @@ class TabRecordsState extends State<TabRecords> {
       controller: _controller,
       onBackPressed: () => _controller.stopSearch(),
       onDatePickerPressed: () => _showDatePicker(),
-      onStatisticsPressed: () => _controller.navigateToStatisticsPage(context),
+      onStatisticsPressed: widget.onStatisticsRequested ?? () {},
       onMenuItemSelected: (index) =>
           _controller.handleMenuAction(context, index),
       onFilterPressed: () => _controller.showFilterModal(context),
@@ -415,12 +416,6 @@ class TabRecordsState extends State<TabRecords> {
       ),
     );
   }
-
-  /// Invoked by the shell-level primary action while this tab remains mounted.
-  Future<void> openAddRecord() => _controller.navigateToAddNewRecord(context);
-
-  /// Invoked by the shell-level statistics destination.
-  void openStatistics() => _controller.navigateToStatisticsPage(context);
 
   // Public method for external navigation callbacks
   onTabChange() async {

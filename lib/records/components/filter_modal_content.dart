@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:piggybank/components/tag_chip.dart';
+import 'package:piggybank/categories/category-display-name.dart';
 import 'package:piggybank/i18n.dart';
 import 'package:piggybank/models/category.dart';
 
@@ -244,7 +245,7 @@ class _FilterModalContentState extends State<FilterModalContent> {
         runSpacing: 4,
         children: categories.map((category) {
           return TagChip(
-            labelText: category?.name ?? '',
+            labelText: categoryDisplayName(category),
             isSelected: _selectedCategories.contains(category),
             selectedColor: color.withValues(alpha: 0.2),
             onSelected: (selected) => _toggleCategory(category, selected),
@@ -430,7 +431,7 @@ class _FilterModalContentState extends State<FilterModalContent> {
 
     if (_selectedCategories.isNotEmpty) {
       final categories = _selectedCategories
-          .map((category) => '**${category?.name ?? ''}**')
+          .map((category) => '**${categoryDisplayName(category)}**')
           .join(' OR ');
       parts.add('($categories)');
     }

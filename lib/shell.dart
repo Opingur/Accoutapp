@@ -12,12 +12,9 @@ import 'package:piggybank/settings/constants/preferences-keys.dart';
 import 'package:piggybank/settings/preferences-utils.dart';
 import 'package:piggybank/settings/settings-page.dart';
 import 'package:piggybank/style.dart';
-import 'package:piggybank/budgets/budgets-page.dart';
 import 'package:piggybank/categories/categories-tab-page-view.dart';
+import 'package:piggybank/statistics/statistics-page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import 'categories/categories-tab-page-edit.dart';
-import 'wallets/wallets-tab-page.dart';
 
 class Shell extends StatefulWidget {
   @override
@@ -44,18 +41,12 @@ class ShellState extends State<Shell> {
   bool _announcementDialogChecked = false;
 
   final GlobalKey<TabRecordsState> _tabRecordsKey = GlobalKey();
-  final GlobalKey<TabCategoriesState> _tabCategoriesKey = GlobalKey();
-  final GlobalKey<WalletsTabPageState> _tabWalletsKey = GlobalKey();
-  final GlobalKey<BudgetsPageState> _tabBudgetsKey = GlobalKey();
+  final GlobalKey<StatisticsPageState> _statisticsKey = GlobalKey();
 
   final GlobalKey<NavigatorState> _homeNavigatorKey =
       GlobalKey<NavigatorState>();
-  final GlobalKey<NavigatorState> _categoriesNavigatorKey =
-      GlobalKey<NavigatorState>();
-  final GlobalKey<NavigatorState> _walletsNavigatorKey =
-      GlobalKey<NavigatorState>();
-  final GlobalKey<NavigatorState> _budgetsNavigatorKey =
-      GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> _statisticsNavigatorKey = GlobalKey();
+  final GlobalKey<NavigatorState> _discoverNavigatorKey = GlobalKey();
   final GlobalKey<NavigatorState> _settingsNavigatorKey =
       GlobalKey<NavigatorState>();
 
@@ -133,9 +124,9 @@ class ShellState extends State<Shell> {
   }
 
   /// Opens the add-record flow on the expense (0) or income (1) tab.
-  void _openAddFlow(String? action) {
+  Future<void> _openAddFlow(String? action) async {
     final tabIndex = action == 'add_income' ? 1 : 0;
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CategoryTabPageView(
           goToEditMovementPage: true,
@@ -143,6 +134,9 @@ class ShellState extends State<Shell> {
         ),
       ),
     );
+    if (!mounted) return;
+    await _tabRecordsKey.currentState?.onTabChange();
+    await _statisticsKey.currentState?.refresh();
   }
 
   /// Refreshes the home tab's records list (e.g., after a quick action added a record).
@@ -156,22 +150,20 @@ class ShellState extends State<Shell> {
   }
 
   void _openPrimaryAddFlow() {
-    if (_currentIndex != 0) setState(() => _currentIndex = 0);
-    _tabRecordsKey.currentState?.openAddRecord();
+    _openAddFlow(null);
   }
 
-  void _openStatistics() {
-    if (_currentIndex != 0) setState(() => _currentIndex = 0);
-    _tabRecordsKey.currentState?.openStatistics();
+  void _showStatistics() {
+    if (_currentIndex != 1) setState(() => _currentIndex = 1);
+    _statisticsKey.currentState?.refresh();
   }
 
   void _showSettings() {
-    if (_currentIndex != 4) setState(() => _currentIndex = 4);
+    if (_currentIndex != 3) setState(() => _currentIndex = 3);
   }
 
-  void _showDiscoverPlaceholder() {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('发现功能即将推出')));
+  void _showDiscover() {
+    if (_currentIndex != 2) setState(() => _currentIndex = 2);
   }
 
   @override
@@ -193,7 +185,7 @@ class ShellState extends State<Shell> {
                   Icon(Icons.lock, size: 80, color: Colors.grey),
                   SizedBox(height: 20),
                   Text(
-                    "Authentication Failed",
+                    "身份验证失败".i18n,
                     style: TextStyle(fontSize: 16, color: Colors.grey),
                   ),
                   SizedBox(height: 20),
@@ -204,7 +196,7 @@ class ShellState extends State<Shell> {
                         authFuture = _authenticate();
                       });
                     },
-                    child: Text("Retry"),
+                    child: Text("Retry".i18n),
                   ),
                 ],
               ),
@@ -238,15 +230,12 @@ class ShellState extends State<Shell> {
             currentNavigator = _homeNavigatorKey.currentState;
             break;
           case 1:
-            currentNavigator = _walletsNavigatorKey.currentState;
+            currentNavigator = _statisticsNavigatorKey.currentState;
             break;
           case 2:
-            currentNavigator = _categoriesNavigatorKey.currentState;
+            currentNavigator = _discoverNavigatorKey.currentState;
             break;
           case 3:
-            currentNavigator = _budgetsNavigatorKey.currentState;
-            break;
-          case 4:
             currentNavigator = _settingsNavigatorKey.currentState;
             break;
         }
@@ -293,7 +282,10 @@ class ShellState extends State<Shell> {
                     key: _homeNavigatorKey,
                     onGenerateRoute: (settings) {
                       return MaterialPageRoute(
-                        builder: (_) => TabRecords(key: _tabRecordsKey),
+                        builder: (_) => TabRecords(
+                          key: _tabRecordsKey,
+                          onStatisticsRequested: _showStatistics,
+                        ),
                       );
                     },
                   ),
@@ -304,10 +296,15 @@ class ShellState extends State<Shell> {
                 child: TickerMode(
                   enabled: _currentIndex == 1,
                   child: Navigator(
-                    key: _walletsNavigatorKey,
+                    key: _statisticsNavigatorKey,
                     onGenerateRoute: (settings) {
                       return MaterialPageRoute(
-                        builder: (_) => WalletsTabPage(key: _tabWalletsKey),
+                        builder: (_) => StatisticsPage(
+                          null,
+                          null,
+                          null,
+                          key: _statisticsKey,
+                        ),
                       );
                     },
                   ),
@@ -318,10 +315,10 @@ class ShellState extends State<Shell> {
                 child: TickerMode(
                   enabled: _currentIndex == 2,
                   child: Navigator(
-                    key: _categoriesNavigatorKey,
+                    key: _discoverNavigatorKey,
                     onGenerateRoute: (settings) {
                       return MaterialPageRoute(
-                        builder: (_) => TabCategories(key: _tabCategoriesKey),
+                        builder: (_) => const _DiscoverRoot(),
                       );
                     },
                   ),
@@ -331,20 +328,6 @@ class ShellState extends State<Shell> {
                 offstage: _currentIndex != 3,
                 child: TickerMode(
                   enabled: _currentIndex == 3,
-                  child: Navigator(
-                    key: _budgetsNavigatorKey,
-                    onGenerateRoute: (settings) {
-                      return MaterialPageRoute(
-                        builder: (_) => BudgetsPage(key: _tabBudgetsKey),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              Offstage(
-                offstage: _currentIndex != 4,
-                child: TickerMode(
-                  enabled: _currentIndex == 4,
                   child: Navigator(
                     key: _settingsNavigatorKey,
                     onGenerateRoute: (settings) {
@@ -367,8 +350,8 @@ class ShellState extends State<Shell> {
                     selectedIndex: _currentIndex,
                     onRecordsPressed: _showRecords,
                     onAddPressed: _openPrimaryAddFlow,
-                    onStatisticsPressed: _openStatistics,
-                    onDiscoverPressed: _showDiscoverPlaceholder,
+                    onStatisticsPressed: _showStatistics,
+                    onDiscoverPressed: _showDiscover,
                     onProfilePressed: _showSettings,
                   ),
           ),
@@ -376,6 +359,21 @@ class ShellState extends State<Shell> {
       ),
     );
   }
+}
+
+class _DiscoverRoot extends StatelessWidget {
+  const _DiscoverRoot();
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+    backgroundColor: Colors.white,
+    body: Center(
+      child: Text(
+        '发现功能即将推出',
+        style: TextStyle(fontSize: 15, color: Color(0xFF666666)),
+      ),
+    ),
+  );
 }
 
 class _HomeBottomBar extends StatelessWidget {
@@ -423,6 +421,7 @@ class _HomeBottomBar extends StatelessWidget {
                 _BottomAction(
                   icon: Icons.query_stats_outlined,
                   label: '图表',
+                  selected: selectedIndex == 1,
                   onTap: onStatisticsPressed,
                 ),
                 Semantics(
@@ -438,12 +437,13 @@ class _HomeBottomBar extends StatelessWidget {
                 _BottomAction(
                   icon: Icons.explore_outlined,
                   label: '发现',
+                  selected: selectedIndex == 2,
                   onTap: onDiscoverPressed,
                 ),
                 _BottomAction(
                   icon: Icons.person_outline,
                   label: '我的',
-                  selected: selectedIndex == 4,
+                  selected: selectedIndex == 3,
                   onTap: onProfilePressed,
                 ),
               ],

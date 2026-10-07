@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:piggybank/helpers/records-utility-functions.dart';
+import 'package:piggybank/categories/category-display-name.dart';
 import 'package:piggybank/models/recurrent-record-pattern.dart';
 import 'package:piggybank/models/wallet.dart';
 import 'package:piggybank/records/edit-record-page.dart';
@@ -11,6 +12,7 @@ import 'package:piggybank/services/transfer-icon-service.dart';
 
 import '../components/category_icon_circle.dart';
 import '../models/recurrent-period.dart';
+
 import 'package:piggybank/i18n.dart';
 
 /// Groups patterns by their effective recurrence: the RecurrentPeriod, plus
@@ -22,7 +24,10 @@ class _GroupKey {
   final CustomIntervalUnit? customIntervalUnit;
 
   const _GroupKey(
-      this.period, this.customIntervalValue, this.customIntervalUnit);
+    this.period,
+    this.customIntervalValue,
+    this.customIntervalUnit,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -42,7 +47,9 @@ enum _RecurrenceUnitBucket { day, week, month, year }
 /// its subtitle/sort order (e.g. a custom "every 2 weeks" pattern behaves
 /// like [RecurrentPeriod.EveryTwoWeeks] for display purposes).
 _RecurrenceUnitBucket _unitBucketFor(
-    RecurrentPeriod? period, CustomIntervalUnit? customUnit) {
+  RecurrentPeriod? period,
+  CustomIntervalUnit? customUnit,
+) {
   switch (period) {
     case RecurrentPeriod.EveryDay:
       return _RecurrenceUnitBucket.day;
@@ -97,15 +104,16 @@ class PatternsPageViewState extends State<PatternsPageView> {
       final wallets = results[1] as List<Wallet>;
       _walletsById = {
         for (final w in wallets)
-          if (w.id != null) w.id!: w
+          if (w.id != null) w.id!: w,
       };
     });
   }
 
   fetchRecurrentRecordPatternsFromDatabase() async {
     final profileId = ProfileService.instance.activeProfileId;
-    var patterns =
-        await database.getRecurrentRecordPatterns(profileId: profileId);
+    var patterns = await database.getRecurrentRecordPatterns(
+      profileId: profileId,
+    );
     if (!mounted) return;
     setState(() {
       _recurrentRecordPatterns = patterns;
@@ -116,14 +124,14 @@ class PatternsPageViewState extends State<PatternsPageView> {
     final defaultCurrency = getDefaultCurrency();
     final effectiveDefault =
         (defaultCurrency != null && defaultCurrency.isNotEmpty)
-            ? defaultCurrency
-            : null;
+        ? defaultCurrency
+        : null;
     return {
       for (final entry in _walletsById.entries)
         entry.key:
             (entry.value.currency != null && entry.value.currency!.isNotEmpty)
-                ? entry.value.currency
-                : effectiveDefault
+            ? entry.value.currency
+            : effectiveDefault,
     };
   }
 
@@ -131,22 +139,27 @@ class PatternsPageViewState extends State<PatternsPageView> {
       getAmountColor(pattern.value ?? 0.0, Theme.of(context).brightness);
 
   Widget _buildPatternAmountWidget(RecurrentRecordPattern pattern) {
-    final wallet =
-        pattern.walletId != null ? _walletsById[pattern.walletId] : null;
+    final wallet = pattern.walletId != null
+        ? _walletsById[pattern.walletId]
+        : null;
 
     final patternCurrency = wallet?.currency;
     final color = _amountColor(pattern);
-    final style =
-        color != null ? _biggerFont.copyWith(color: color) : _biggerFont;
+    final style = color != null
+        ? _biggerFont.copyWith(color: color)
+        : _biggerFont;
 
     // No currency set
     if (patternCurrency == null || patternCurrency.isEmpty) {
       return Text(getCurrencyValueString(pattern.value), style: style);
     }
 
-    return buildAmountWithCurrencyWidget(pattern.value!, patternCurrency,
-        mainStyle: style,
-        brightness: Theme.of(context).brightness);
+    return buildAmountWithCurrencyWidget(
+      pattern.value!,
+      patternCurrency,
+      mainStyle: style,
+      brightness: Theme.of(context).brightness,
+    );
   }
 
   final _biggerFont = const TextStyle(fontSize: 18.0);
@@ -154,8 +167,10 @@ class PatternsPageViewState extends State<PatternsPageView> {
 
   String _recurrenceSubtitle(RecurrentRecordPattern pattern) {
     final dt = pattern.localDateTime;
-    switch (
-        _unitBucketFor(pattern.recurrentPeriod, pattern.customIntervalUnit)) {
+    switch (_unitBucketFor(
+      pattern.recurrentPeriod,
+      pattern.customIntervalUnit,
+    )) {
       case _RecurrenceUnitBucket.day:
         return '';
       case _RecurrenceUnitBucket.week:
@@ -180,16 +195,17 @@ class PatternsPageViewState extends State<PatternsPageView> {
           await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => EditRecordPage(
-                passedRecurrentRecordPattern: pattern,
-              ),
+              builder: (context) =>
+                  EditRecordPage(passedRecurrentRecordPattern: pattern),
             ),
           );
           await fetchRecurrentRecordPatternsFromDatabase();
         },
         title: Text(
           pattern.title == null || pattern.title!.trim().isEmpty
-              ? pattern.category?.name ?? "Transfer".i18n
+              ? pattern.category == null
+                    ? "Transfer".i18n
+                    : categoryDisplayName(pattern.category)
               : pattern.title!,
           style: _biggerFont,
           maxLines: 2,
@@ -209,8 +225,8 @@ class PatternsPageViewState extends State<PatternsPageView> {
           backgroundColor: isUncategorizedTransfer
               ? TransferIconService.color
               : pattern.category?.color,
-          topOverlayIcon: isTransfer && pattern.category != null &&
-                  transferEmoji == null
+          topOverlayIcon:
+              isTransfer && pattern.category != null && transferEmoji == null
               ? TransferIconService.icon
               : null,
           topOverlayEmoji: isTransfer && pattern.category != null
@@ -229,15 +245,20 @@ class PatternsPageViewState extends State<PatternsPageView> {
 
     for (var pattern in _recurrentRecordPatterns!) {
       if (pattern.recurrentPeriod != null) {
-        final key = _GroupKey(pattern.recurrentPeriod!,
-            pattern.customIntervalValue, pattern.customIntervalUnit);
+        final key = _GroupKey(
+          pattern.recurrentPeriod!,
+          pattern.customIntervalValue,
+          pattern.customIntervalUnit,
+        );
         grouped.putIfAbsent(key, () => []).add(pattern);
       }
     }
 
     for (var entry in grouped.entries) {
-      final bucket =
-          _unitBucketFor(entry.key.period, entry.key.customIntervalUnit);
+      final bucket = _unitBucketFor(
+        entry.key.period,
+        entry.key.customIntervalUnit,
+      );
       entry.value.sort((a, b) {
         final aDate = a.localDateTime;
         final bDate = b.localDateTime;
@@ -270,14 +291,18 @@ class PatternsPageViewState extends State<PatternsPageView> {
         .toSet();
 
     if (currencies.isEmpty) {
-      final total =
-          patterns.fold<double>(0.0, (sum, p) => sum + (p.value ?? 0.0));
+      final total = patterns.fold<double>(
+        0.0,
+        (sum, p) => sum + (p.value ?? 0.0),
+      );
       return getCurrencyValueString(total);
     }
 
     if (currencies.length == 1) {
-      final total =
-          patterns.fold<double>(0.0, (sum, p) => sum + (p.value ?? 0.0));
+      final total = patterns.fold<double>(
+        0.0,
+        (sum, p) => sum + (p.value ?? 0.0),
+      );
       return formatCurrencyAmount(total, currencies.first);
     }
 
@@ -287,8 +312,9 @@ class PatternsPageViewState extends State<PatternsPageView> {
       double total = 0.0;
       for (final p in patterns) {
         final value = p.value ?? 0.0;
-        final currency =
-            p.walletId != null ? walletCurrencyMap[p.walletId] : null;
+        final currency = p.walletId != null
+            ? walletCurrencyMap[p.walletId]
+            : null;
         if (currency == null ||
             currency.isEmpty ||
             currency == defaultCurrency) {
@@ -302,15 +328,19 @@ class PatternsPageViewState extends State<PatternsPageView> {
     }
 
     // No default currency set — fallback to raw sum
-    final total =
-        patterns.fold<double>(0.0, (sum, p) => sum + (p.value ?? 0.0));
+    final total = patterns.fold<double>(
+      0.0,
+      (sum, p) => sum + (p.value ?? 0.0),
+    );
     return getCurrencyValueString(total);
   }
 
   Widget _buildGroupHeader(_GroupKey groupKey, String formattedSum) {
-    final label = recurrentPeriodDisplayString(groupKey.period,
-        customIntervalValue: groupKey.customIntervalValue,
-        customIntervalUnit: groupKey.customIntervalUnit);
+    final label = recurrentPeriodDisplayString(
+      groupKey.period,
+      customIntervalValue: groupKey.customIntervalValue,
+      customIntervalUnit: groupKey.customIntervalUnit,
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(15, 8, 15, 8),
       child: Row(
@@ -338,22 +368,22 @@ class PatternsPageViewState extends State<PatternsPageView> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Flexible(
-                          child: new Column(
-                        children: <Widget>[
-                          Image.asset(
-                            'assets/images/no_entry_2.png',
-                            width: 200,
-                          ),
-                          Container(
-                              child: Text(
-                            "No recurrent records yet.".i18n,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 22.0,
+                        child: new Column(
+                          children: <Widget>[
+                            Image.asset(
+                              'assets/images/no_entry_2.png',
+                              width: 200,
                             ),
-                          ))
-                        ],
-                      ))
+                            Container(
+                              child: Text(
+                                "No recurrent records yet.".i18n,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 22.0),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   )
                 : ListView.builder(
@@ -369,7 +399,9 @@ class PatternsPageViewState extends State<PatternsPageView> {
                         child: Column(
                           children: [
                             _buildGroupHeader(
-                                period, _formatGroupSum(patterns)),
+                              period,
+                              _formatGroupSum(patterns),
+                            ),
                             Divider(thickness: 0.5),
                             ListView.separated(
                               physics: const NeverScrollableScrollPhysics(),
@@ -383,14 +415,17 @@ class PatternsPageViewState extends State<PatternsPageView> {
                           ],
                         ),
                       );
-                    }))
+                    },
+                  ),
+          )
         : new Container();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(title: Text('Recurrent Records'.i18n)),
-        body: buildRecurrentRecordPatternsList());
+      appBar: AppBar(title: Text('Recurrent Records'.i18n)),
+      body: buildRecurrentRecordPatternsList(),
+    );
   }
 }

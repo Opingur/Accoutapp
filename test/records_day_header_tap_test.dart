@@ -14,6 +14,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 /// Tapping a day header starts a new entry pre-dated to that day (#372).
 void main() {
   final food = Category('Food', categoryType: CategoryType.expense);
+  const headerKey = ValueKey('records-day-header-2026-06-15');
 
   setUpAll(() async {
     tz.initializeTimeZones();
@@ -52,7 +53,7 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.text('15'));
+    await tester.tap(find.byKey(headerKey));
     await tester.pump();
 
     expect(tapped, isNotNull);
@@ -72,19 +73,17 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: SingleChildScrollView(
-            child: RecordsPerDayCard(recordsDay),
-          ),
+          body: SingleChildScrollView(child: RecordsPerDayCard(recordsDay)),
         ),
       ),
     );
     await tester.pump();
 
     // Renders fine; the header has no tap handler so nothing can fire.
-    expect(find.text('15'), findsOneWidget);
+    expect(find.byKey(headerKey), findsOneWidget);
     expect(
       find.ancestor(
-        of: find.text('15'),
+        of: find.byKey(headerKey),
         matching: find.byWidgetPredicate(
           (w) => w is InkWell && w.onTap != null,
         ),
