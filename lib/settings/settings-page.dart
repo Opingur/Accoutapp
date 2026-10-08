@@ -23,7 +23,7 @@ import 'package:piggybank/tags/tags-page-view.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // import 'contributors-page.dart';
-import 'csv_import/csv_import_page.dart';
+import 'smart_import/smart_import_page.dart';
 import 'currencies-page.dart';
 import 'feedback-page.dart';
 
@@ -318,15 +318,14 @@ class TabSettings extends StatelessWidget {
                     : Container(),
               ],
             ),
-            // CSV import feature — free for all users
             SettingsItem(
               icon: Icon(Icons.file_upload, color: Colors.white),
               iconBackgroundColor: Colors.indigo.shade600,
-              title: 'Import from CSV'.i18n,
-              subtitle: "Import records from a CSV file or clipboard".i18n,
+              title: '导入 CSV / Excel',
+              subtitle: '智能识别账单字段、分类与重复记录',
               onPressed: () async => await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const CsvImportPage()),
+                MaterialPageRoute(builder: (context) => const SmartImportPage()),
               ),
             ),
             SettingsItem(

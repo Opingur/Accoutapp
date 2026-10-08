@@ -14,6 +14,7 @@ import 'package:piggybank/models/record.dart';
 import 'package:piggybank/models/recurrent-record-pattern.dart';
 import 'package:piggybank/services/database/database-interface.dart';
 import 'package:piggybank/services/database/sqlite-migration-service.dart';
+import 'package:piggybank/services/smart_import_service.dart';
 import 'package:piggybank/settings/constants/preferences-keys.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
@@ -664,6 +665,167 @@ class SqliteDatabase implements DatabaseInterface {
       _logger.handle(e, st, 'Failed to add records in batch (no dup check)');
       rethrow;
     }
+  }
+
+  @override
+  Future<SmartImportCommitResult> commitSmartImport(
+    List<SmartImportCandidate> candidates, {
+    required int? profileId,
+    required String timeZoneName,
+  }) async {
+    final db = (await database)!;
+    final importable = candidates
+        .where((candidate) => candidate.canCommit)
+        .toList();
+    var imported = 0;
+    var skipped = candidates.length - importable.length;
+    var createdCategories = 0;
+    var createdWallets = 0;
+    var incomeTotal = 0.0;
+    var expenseTotal = 0.0;
+    var transferCount = 0;
+
+    await db.transaction((transaction) async {
+      final categories = <Category>{
+        for (final candidate in importable)
+          if (candidate.suggestedCategory != null) candidate.suggestedCategory!,
+      };
+      for (final category in categories) {
+        final existing = await transaction.query(
+          'categories',
+          columns: const ['name'],
+          where: 'name = ? AND category_type = ?',
+          whereArgs: [category.name, category.categoryType!.index],
+          limit: 1,
+        );
+        if (existing.isNotEmpty) continue;
+        if (category.isSystem) {
+          throw StateError('系统分类“${category.name}”不存在，无法安全创建');
+        }
+        await transaction.insert('categories', category.toMap());
+        createdCategories++;
+      }
+
+      final wallets = <Wallet>{
+        for (final candidate in importable) ...[
+          if (candidate.wallet != null) candidate.wallet!,
+          if (candidate.transferWallet != null) candidate.transferWallet!,
+        ],
+      };
+      for (final wallet in wallets) {
+        if (wallet.id != null) continue;
+        if (wallet.name.trim().isEmpty) {
+          throw StateError('新钱包名称不能为空');
+        }
+        final existing = await transaction.query(
+          'wallets',
+          columns: const ['id'],
+          where: 'name = ? AND profile_id IS ?',
+          whereArgs: [wallet.name, profileId],
+          limit: 1,
+        );
+        if (existing.isNotEmpty) {
+          wallet.id = existing.single['id'] as int;
+          continue;
+        }
+        wallet.profileId = profileId;
+        final values = wallet.toMap()..remove('id');
+        wallet.id = await transaction.insert('wallets', values);
+        createdWallets++;
+      }
+
+      for (final candidate in importable) {
+        final record = _recordFromSmartImportCandidate(
+          candidate,
+          profileId,
+          timeZoneName,
+        );
+        final exists = await transaction.query(
+          'records',
+          columns: const ['id'],
+          where:
+              "datetime = ? AND value = ? AND COALESCE(title, '') = ? AND "
+              "COALESCE(category_name, '') = ? AND COALESCE(category_type, -1) = ? "
+              'AND COALESCE(wallet_id, -1) = ? '
+              'AND COALESCE(transfer_wallet_id, -1) = ? '
+              'AND COALESCE(profile_id, -1) = ? '
+              "AND COALESCE(description, '') = ?",
+          whereArgs: [
+            record.utcDateTime.millisecondsSinceEpoch,
+            record.value,
+            record.title ?? '',
+            record.category?.name ?? '',
+            record.category?.categoryType?.index ?? -1,
+            record.walletId ?? -1,
+            record.transferWalletId ?? -1,
+            profileId ?? -1,
+            record.description ?? '',
+          ],
+          limit: 1,
+        );
+        if (exists.isNotEmpty &&
+            candidate.duplicateDecision != SmartImportDuplicateDecision.keep) {
+          skipped++;
+          continue;
+        }
+
+        await transaction.insert('records', record.toMap()..remove('id'));
+        imported++;
+        switch (candidate.type) {
+          case SmartImportTransactionType.income:
+            incomeTotal += candidate.amount!;
+          case SmartImportTransactionType.expense:
+            expenseTotal += candidate.amount!;
+          case SmartImportTransactionType.transfer:
+            transferCount++;
+          case null:
+            throw StateError('无法确认账单类型');
+        }
+      }
+    });
+
+    _notifyDatabaseChanged();
+    return SmartImportCommitResult(
+      imported: imported,
+      skipped: skipped,
+      createdCategories: createdCategories,
+      createdWallets: createdWallets,
+      incomeTotal: incomeTotal,
+      expenseTotal: expenseTotal,
+      transferCount: transferCount,
+    );
+  }
+
+  Record _recordFromSmartImportCandidate(
+    SmartImportCandidate candidate,
+    int? profileId,
+    String timeZoneName,
+  ) {
+    final local = candidate.dateTime!;
+    final utc = tz.TZDateTime(
+      getLocation(timeZoneName),
+      local.year,
+      local.month,
+      local.day,
+      local.hour,
+      local.minute,
+      local.second,
+      local.millisecond,
+    ).toUtc();
+    final isIncome = candidate.type == SmartImportTransactionType.income;
+    final isTransfer = candidate.type == SmartImportTransactionType.transfer;
+    return Record(
+      isIncome ? candidate.amount! : -candidate.amount!,
+      candidate.title.isEmpty ? null : candidate.title,
+      isTransfer ? null : candidate.suggestedCategory,
+      utc,
+      description: candidate.description.isEmpty ? null : candidate.description,
+      timeZoneName: timeZoneName,
+      walletId: candidate.wallet!.id,
+      transferWalletId: isTransfer ? candidate.transferWallet!.id : null,
+      transferValue: isTransfer ? candidate.amount : null,
+      profileId: profileId,
+    );
   }
 
   @override

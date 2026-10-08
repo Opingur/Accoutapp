@@ -144,6 +144,13 @@ class ShellState extends State<Shell> {
     _tabRecordsKey.currentState?.onTabChange();
   }
 
+  /// Refreshes cached record/statistics views after an external batch write
+  /// such as the CSV/XLSX smart import. It does not change navigation state.
+  Future<void> refreshImportedData() async {
+    await _tabRecordsKey.currentState?.onTabChange();
+    await _statisticsKey.currentState?.refresh();
+  }
+
   Future<void> _showRecords() async {
     if (_currentIndex != 0) setState(() => _currentIndex = 0);
     await _tabRecordsKey.currentState?.onTabChange();

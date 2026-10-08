@@ -8,6 +8,7 @@ import 'package:piggybank/models/record-tag-association.dart';
 import 'package:piggybank/models/record.dart';
 import 'package:piggybank/models/recurrent-record-pattern.dart';
 import 'package:piggybank/models/wallet.dart';
+import 'package:piggybank/services/smart_import_service.dart';
 
 abstract class DatabaseInterface {
   /// DatabaseInterface is an interface that the database classes
@@ -26,11 +27,17 @@ abstract class DatabaseInterface {
   Future<List<Category?>> getCategoriesByType(CategoryType categoryType);
   Future<Category?> getCategory(String categoryName, CategoryType categoryType);
   Future<int> addCategory(Category? category);
-  Future<int> updateCategory(String? existingCategoryName,
-      CategoryType? existingCategoryType, Category? updatedCategory);
+  Future<int> updateCategory(
+    String? existingCategoryName,
+    CategoryType? existingCategoryType,
+    Category? updatedCategory,
+  );
   Future<void> deleteCategory(String? name, CategoryType? categoryType);
   Future<void> archiveCategory(
-      String categoryName, CategoryType categoryType, bool isArchived);
+    String categoryName,
+    CategoryType categoryType,
+    bool isArchived,
+  );
   Future<void> resetCategoryOrderIndexes(List<Category> orderedCategories);
 
   /// Record CRUD
@@ -40,26 +47,45 @@ abstract class DatabaseInterface {
   Future<int> addRecord(Record? record);
   Future<void> addRecordsInBatch(List<Record?> records);
   Future<void> addRecordsInBatchNoDuplicateCheck(List<Record?> records);
+
+  /// Atomically writes a user-confirmed smart-import preview. Implementations
+  /// must either persist every requested category, wallet, and record or none.
+  Future<SmartImportCommitResult> commitSmartImport(
+    List<SmartImportCandidate> candidates, {
+    required int? profileId,
+    required String timeZoneName,
+  });
   Future<int?> updateRecordById(int? recordId, Record? newRecord);
   Future<void> updateRecordWalletInBatch(List<int> ids, int? walletId);
   Future<void> duplicateRecordsInBatch(List<int> ids);
   Future<DateTime?> getDateTimeFirstRecord();
   Future<List<Record?>> getAllRecords({int? profileId});
   Future<int> getCountRecords();
-  Future<List<Record?>> getAllRecordsInInterval(DateTime? from, DateTime? to,
-      {int? profileId});
+  Future<List<Record?>> getAllRecordsInInterval(
+    DateTime? from,
+    DateTime? to, {
+    int? profileId,
+  });
   Future<Record?> getMatchingRecord(Record? record);
   Future<void> deleteFutureRecordsByPatternId(
-      String recurrentPatternId, DateTime startingTime);
+    String recurrentPatternId,
+    DateTime startingTime,
+  );
   Future<List<String>> suggestedRecordTitles(
-      String search, String categoryName);
+    String search,
+    String categoryName,
+  );
   Future<List<String>> getTagsForRecord(int recordId);
   Future<Set<String>> getAllTags();
   Future<Set<String>> getRecentlyUsedTags();
   Future<Set<String>> getMostUsedTagsForCategory(
-      String categoryName, CategoryType categoryType);
+    String categoryName,
+    CategoryType categoryType,
+  );
   Future<List<Map<String, dynamic>>> getAggregatedRecordsByTagInInterval(
-      DateTime? from, DateTime? to);
+    DateTime? from,
+    DateTime? to,
+  );
 
   // New methods for record tag associations
   Future<List<RecordTagAssociation>> getAllRecordTagAssociations();
@@ -67,14 +93,18 @@ abstract class DatabaseInterface {
   Future<void> deleteTag(String tagToDelete);
 
   // Recurrent Records Patterns CRUD
-  Future<List<RecurrentRecordPattern>> getRecurrentRecordPatterns(
-      {int? profileId});
+  Future<List<RecurrentRecordPattern>> getRecurrentRecordPatterns({
+    int? profileId,
+  });
   Future<RecurrentRecordPattern?> getRecurrentRecordPattern(
-      String? recurrentPatternId);
+    String? recurrentPatternId,
+  );
   Future<void> addRecurrentRecordPattern(RecurrentRecordPattern recordPattern);
   Future<void> deleteRecurrentRecordPatternById(String? recurrentPatternId);
   Future<void> updateRecordPatternById(
-      String? recurrentPatternId, RecurrentRecordPattern pattern);
+    String? recurrentPatternId,
+    RecurrentRecordPattern pattern,
+  );
 
   // Wallet CRUD
 
@@ -90,8 +120,10 @@ abstract class DatabaseInterface {
   /// applied uniformly, exactly as it is for the live balance. If the user
   /// adjusts it to correct balance drift, the correction bleeds backward into
   /// every past snapshot too.
-  Future<List<Wallet>> getWalletsBalanceAsOf(DateTime asOfDate,
-      {int? profileId});
+  Future<List<Wallet>> getWalletsBalanceAsOf(
+    DateTime asOfDate, {
+    int? profileId,
+  });
 
   // Profile CRUD
   /// Returns all profiles ordered by [Profile.sortOrder].
@@ -102,6 +134,7 @@ abstract class DatabaseInterface {
   Future<int> addProfile(Profile profile);
   Future<void> updateProfile(Profile profile);
   Future<void> deleteProfileAndRecords(int id);
+
   /// Persists the [sortOrder] of each profile according to [ordered]'s position.
   Future<void> resetProfileOrderIndexes(List<Profile> ordered);
 

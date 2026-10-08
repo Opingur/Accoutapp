@@ -42,6 +42,7 @@ dependencies:
   future_progress_dialog: ^0.2.1
   csv: ^8.0.0
   excel_community: ^2.6.0
+  enough_convert: ^1.6.0
   flutter_file_dialog: ^3.3.3
   encrypt: ^5.0.3
   talker_flutter: ^5.1.20
