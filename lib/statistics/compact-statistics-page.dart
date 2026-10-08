@@ -2,12 +2,11 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:piggybank/categories/category-display-name.dart';
 import 'package:intl/intl.dart';
 import 'package:piggybank/helpers/records-utility-functions.dart';
-import 'package:piggybank/models/category.dart';
 import 'package:piggybank/models/category-type.dart';
 import 'package:piggybank/models/record.dart';
+import 'package:piggybank/statistics/category-analysis.dart';
 
 /// Compact, phone-first statistics. It reads records only and never mutates
 /// bills, categories, or database state.
@@ -27,6 +26,8 @@ class CompactStatisticsPage extends StatefulWidget {
 
 enum _StatisticsPeriod { week, month, year }
 
+enum _CategoryAnalysisMode { ranking, pie }
+
 class _CompactStatisticsPageState extends State<CompactStatisticsPage> {
   static const _yellow = Color(0xFFFFD21F);
   static const _ink = Color(0xFF282828);
@@ -36,6 +37,7 @@ class _CompactStatisticsPageState extends State<CompactStatisticsPage> {
   late DateTime _selectedStart;
   late DateTime _visibleEnd;
   late List<Record?> _records;
+  late _CategoryAnalysisMode _analysisMode;
 
   @override
   void initState() {
@@ -45,6 +47,7 @@ class _CompactStatisticsPageState extends State<CompactStatisticsPage> {
     _records = widget.records;
     _selectedStart = _normalizeStart(DateTime.now());
     _visibleEnd = _selectedStart;
+    _analysisMode = _CategoryAnalysisMode.ranking;
   }
 
   @override
@@ -178,19 +181,11 @@ class _CompactStatisticsPageState extends State<CompactStatisticsPage> {
     }
   }
 
-  List<_CategoryTotal> get _ranking {
-    final grouped = <Category?, List<Record?>>{};
-    for (final record in _selectedRecords) {
-      grouped.putIfAbsent(record!.category, () => []).add(record);
-    }
-    final result =
-        grouped.entries
-            .map((entry) => _CategoryTotal(entry.key, _total(entry.value)))
-            .where((item) => item.total > 0)
-            .toList()
-          ..sort((left, right) => right.total.compareTo(left.total));
-    return result;
-  }
+  List<CategoryAnalysisEntry> get _ranking => aggregateCategoryAnalysis(
+    _selectedRecords,
+    widget.walletCurrencyMap,
+    categoryType: _categoryType,
+  );
 
   String _formatTotal(double value) => NumberFormat('#,##0.00').format(value);
   String _formatAmount(double value) => NumberFormat('#,##0.##').format(value);
@@ -252,6 +247,7 @@ class _CompactStatisticsPageState extends State<CompactStatisticsPage> {
     final total = _total(_selectedRecords);
     final trend = _trend;
     final ranking = _ranking;
+    final pieEntries = buildPieAnalysisEntries(ranking);
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -296,19 +292,7 @@ class _CompactStatisticsPageState extends State<CompactStatisticsPage> {
                       ),
                     ),
                     const Divider(height: 1, color: Color(0xFFECECEC)),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-                      child: Text(
-                        _categoryType == CategoryType.expense
-                            ? '支出排行榜'
-                            : '收入排行榜',
-                        style: const TextStyle(
-                          color: _ink,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
+                    _buildAnalysisHeader(),
                     if (ranking.isEmpty)
                       const Padding(
                         padding: EdgeInsets.fromLTRB(18, 24, 18, 42),
@@ -321,14 +305,23 @@ class _CompactStatisticsPageState extends State<CompactStatisticsPage> {
                           ),
                         ),
                       )
-                    else
+                    else if (_analysisMode == _CategoryAnalysisMode.ranking)
                       ...ranking.map(
                         (item) => _RankingRow(
                           item: item,
                           total: total,
-                          max: ranking.first.total,
+                          max: ranking.first.amount,
                           formatAmount: _formatAmount,
                         ),
+                      )
+                    else
+                      _PieAnalysis(
+                        entries: pieEntries,
+                        total: total,
+                        typeLabel: _categoryType == CategoryType.expense
+                            ? '支出'
+                            : '收入',
+                        formatAmount: _formatAmount,
                       ),
                   ],
                 ),
@@ -412,6 +405,28 @@ class _CompactStatisticsPageState extends State<CompactStatisticsPage> {
               );
             }).toList(),
           ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildAnalysisHeader() => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            _categoryType == CategoryType.expense ? '支出排行榜' : '收入排行榜',
+            style: const TextStyle(
+              color: _ink,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        _AnalysisModeToggle(
+          selected: _analysisMode,
+          onChanged: (value) => setState(() => _analysisMode = value),
         ),
       ],
     ),
@@ -694,13 +709,6 @@ class _TrendChartPainter extends CustomPainter {
       oldDelegate.maxText != maxText;
 }
 
-class _CategoryTotal {
-  const _CategoryTotal(this.category, this.total);
-
-  final Category? category;
-  final double total;
-}
-
 class _RankingRow extends StatelessWidget {
   const _RankingRow({
     required this.item,
@@ -709,14 +717,14 @@ class _RankingRow extends StatelessWidget {
     required this.formatAmount,
   });
 
-  final _CategoryTotal item;
+  final CategoryAnalysisEntry item;
   final double total;
   final double max;
   final String Function(double) formatAmount;
 
   @override
   Widget build(BuildContext context) {
-    final percent = total == 0 ? 0.0 : item.total / total * 100;
+    final percent = total == 0 ? 0.0 : item.amount / total * 100;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
       child: Row(
@@ -744,7 +752,7 @@ class _RankingRow extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        categoryDisplayName(item.category),
+                        item.displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -772,7 +780,7 @@ class _RankingRow extends StatelessWidget {
                       height: 4,
                       width: math.max(
                         10.0,
-                        constraints.maxWidth * item.total / max,
+                        constraints.maxWidth * item.amount / max,
                       ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFD21F),
@@ -788,7 +796,7 @@ class _RankingRow extends StatelessWidget {
           SizedBox(
             width: 72,
             child: Text(
-              formatAmount(item.total),
+              formatAmount(item.amount),
               textAlign: TextAlign.right,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -799,4 +807,221 @@ class _RankingRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AnalysisModeToggle extends StatelessWidget {
+  const _AnalysisModeToggle({required this.selected, required this.onChanged});
+
+  final _CategoryAnalysisMode selected;
+  final ValueChanged<_CategoryAnalysisMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 28,
+    decoration: BoxDecoration(
+      border: Border.all(color: const Color(0xFF444444), width: .8),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _segment('排行榜', _CategoryAnalysisMode.ranking),
+        _segment('饼图', _CategoryAnalysisMode.pie),
+      ],
+    ),
+  );
+
+  Widget _segment(String label, _CategoryAnalysisMode mode) {
+    final isSelected = selected == mode;
+    return InkWell(
+      key: ValueKey('statistics-analysis-${mode.name}'),
+      onTap: () => onChanged(mode),
+      child: Container(
+        width: 48,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF282828) : Colors.transparent,
+          border: mode == _CategoryAnalysisMode.ranking
+              ? const Border(
+                  right: BorderSide(color: Color(0xFF444444), width: .8),
+                )
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected
+                ? const Color(0xFFFFD21F)
+                : const Color(0xFF444444),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PieAnalysis extends StatelessWidget {
+  const _PieAnalysis({
+    required this.entries,
+    required this.total,
+    required this.typeLabel,
+    required this.formatAmount,
+  });
+
+  final List<CategoryAnalysisEntry> entries;
+  final double total;
+  final String typeLabel;
+  final String Function(double) formatAmount;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 4, 16, 22),
+    child: Column(
+      children: [
+        SizedBox(
+          height: 188,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 172,
+                height: 172,
+                child: CustomPaint(painter: _DonutChartPainter(entries)),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    typeLabel,
+                    style: const TextStyle(
+                      color: Color(0xFF777777),
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    formatAmount(total),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF303030),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        ...entries.map(
+          (entry) => _PieLegendRow(
+            entry: entry,
+            total: total,
+            formatAmount: formatAmount,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _PieLegendRow extends StatelessWidget {
+  const _PieLegendRow({
+    required this.entry,
+    required this.total,
+    required this.formatAmount,
+  });
+
+  final CategoryAnalysisEntry entry;
+  final double total;
+  final String Function(double) formatAmount;
+
+  @override
+  Widget build(BuildContext context) {
+    final percent = total == 0 ? 0.0 : entry.amount / total * 100;
+    return SizedBox(
+      height: 30,
+      child: Row(
+        children: [
+          Container(
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(
+              color: categoryAnalysisColor(entry),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              entry.displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Color(0xFF3D3D3D), fontSize: 13),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 46,
+            child: Text(
+              '${percent.toStringAsFixed(1)}%',
+              textAlign: TextAlign.right,
+              style: const TextStyle(color: Color(0xFF777777), fontSize: 12),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 84,
+            child: Text(
+              formatAmount(entry.amount),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: const TextStyle(color: Color(0xFF3D3D3D), fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DonutChartPainter extends CustomPainter {
+  const _DonutChartPainter(this.entries);
+
+  final List<CategoryAnalysisEntry> entries;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final total = entries.fold<double>(0, (sum, entry) => sum + entry.amount);
+    if (total <= 0) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2 - 17;
+    const strokeWidth = 30.0;
+    var startAngle = -math.pi / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    for (final entry in entries) {
+      final sweepAngle = entry.amount / total * math.pi * 2;
+      canvas.drawArc(
+        rect,
+        startAngle,
+        sweepAngle,
+        false,
+        Paint()
+          ..color = categoryAnalysisColor(entry)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..strokeCap = StrokeCap.butt,
+      );
+      startAngle += sweepAngle;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutChartPainter oldDelegate) =>
+      oldDelegate.entries != entries;
 }
