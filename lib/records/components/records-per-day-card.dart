@@ -198,7 +198,7 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
       shrinkWrap: true,
       itemCount: widget._movementDay.records!.length,
       separatorBuilder: (context, index) {
-        return const Divider(thickness: 0.5, endIndent: 16, indent: 58);
+        return const Divider(thickness: 0.5, endIndent: 12, indent: 56);
       },
       padding: EdgeInsets.zero,
       itemBuilder: /*1*/ (context, i) {
@@ -274,11 +274,11 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
 
     final listTile = ListTile(
       dense: true,
-      visualDensity: const VisualDensity(vertical: -2),
-      minVerticalPadding: 4,
+      visualDensity: const VisualDensity(vertical: -3),
+      minVerticalPadding: 2,
       minTileHeight: HomeCompactMetrics.recordRowHeight,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      horizontalTitleGap: 12,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+      horizontalTitleGap: 10,
       onTap: widget.isSelectMode && canSelect
           ? () => widget.onRecordTapped?.call(movement.id!)
           : !widget.isSelectMode
@@ -451,15 +451,21 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
       child: Column(
         children: <Widget>[
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 5),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildDateHeader(),
-                _DailyTotals(
-                  income: _incomeRecords,
-                  expenses: _expenseRecords,
-                  currencyMap: _effectiveCurrencyMap,
+                Expanded(flex: 5, child: _buildDateHeader()),
+                const SizedBox(width: 6),
+                Flexible(
+                  flex: 7,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: _DailyTotals(
+                      income: _incomeRecords,
+                      expenses: _expenseRecords,
+                      currencyMap: _effectiveCurrencyMap,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -492,47 +498,51 @@ class _DailyTotals extends StatelessWidget {
         .withValues(alpha: 0.56);
     return ValueListenableBuilder<bool>(
       valueListenable: ServiceConfig.privacyModeHiddenNotifier,
-      builder: (context, hidden, _) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '收入 ',
-            style: TextStyle(
-              fontSize: HomeCompactMetrics.dayTotal,
-              color: muted,
+      builder: (context, hidden, _) => FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerRight,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '收入 ',
+              style: TextStyle(
+                fontSize: HomeCompactMetrics.dayTotal,
+                color: muted,
+              ),
             ),
-          ),
-          hidden
-              ? obscuredAmountTextWidget(
-                  const TextStyle(fontSize: HomeCompactMetrics.dayTotal),
-                )
-              : Text(
-                  _format(income),
-                  style: const TextStyle(
-                    fontSize: HomeCompactMetrics.dayTotal,
-                    color: Color(0xFF278C63),
+            hidden
+                ? obscuredAmountTextWidget(
+                    const TextStyle(fontSize: HomeCompactMetrics.dayTotal),
+                  )
+                : Text(
+                    _format(income),
+                    style: const TextStyle(
+                      fontSize: HomeCompactMetrics.dayTotal,
+                      color: Color(0xFF278C63),
+                    ),
                   ),
-                ),
-          const SizedBox(width: 6),
-          Text(
-            '支出 ',
-            style: TextStyle(
-              fontSize: HomeCompactMetrics.dayTotal,
-              color: muted,
+            const SizedBox(width: 5),
+            Text(
+              '支出 ',
+              style: TextStyle(
+                fontSize: HomeCompactMetrics.dayTotal,
+                color: muted,
+              ),
             ),
-          ),
-          hidden
-              ? obscuredAmountTextWidget(
-                  const TextStyle(fontSize: HomeCompactMetrics.dayTotal),
-                )
-              : Text(
-                  _format(expenses),
-                  style: const TextStyle(
-                    fontSize: HomeCompactMetrics.dayTotal,
-                    color: Color(0xFFC44848),
+            hidden
+                ? obscuredAmountTextWidget(
+                    const TextStyle(fontSize: HomeCompactMetrics.dayTotal),
+                  )
+                : Text(
+                    _format(expenses),
+                    style: const TextStyle(
+                      fontSize: HomeCompactMetrics.dayTotal,
+                      color: Color(0xFFC44848),
+                    ),
                   ),
-                ),
-        ],
+          ],
+        ),
       ),
     );
   }

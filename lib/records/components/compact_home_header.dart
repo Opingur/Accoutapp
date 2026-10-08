@@ -49,19 +49,20 @@ class CompactHomeHeader extends StatelessWidget {
       builder: (context, hidden, _) {
         const amountStyle = TextStyle(
           color: ink,
-          fontSize: 19,
+          fontSize: HomeCompactMetrics.overviewAmount,
           fontWeight: FontWeight.w700,
-          letterSpacing: -0.5,
+          letterSpacing: -0.35,
         );
         return SizedBox(
           height: HomeCompactMetrics.homeHeaderHeight,
           child: Container(
             color: yellow,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 SizedBox(
-                  height: 38,
+                  height: 32,
                   child: Row(
                     children: [
                       Semantics(
@@ -69,14 +70,14 @@ class CompactHomeHeader extends StatelessWidget {
                         label: '个人资料',
                         child: InkResponse(
                           onTap: onProfileTap,
-                          radius: 22,
+                          radius: 20,
                           child: const CircleAvatar(
-                            radius: 16,
+                            radius: 14,
                             backgroundColor: Color(0x33FFFFFF),
                             child: Icon(
                               Icons.person_outline,
                               color: ink,
-                              size: 20,
+                              size: 18,
                             ),
                           ),
                         ),
@@ -89,20 +90,19 @@ class CompactHomeHeader extends StatelessWidget {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: ink,
-                              fontSize: 22,
+                              fontSize: HomeCompactMetrics.homeTitle,
                               fontWeight: FontWeight.w800,
-                              letterSpacing: -0.6,
+                              letterSpacing: -0.35,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 32),
+                      const SizedBox(width: 28),
                     ],
                   ),
                 ),
-                const SizedBox(height: 14),
                 SizedBox(
-                  height: 64,
+                  height: 54,
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -145,7 +145,7 @@ class _MonthColumn extends StatelessWidget {
     onTap: onTap,
     borderRadius: BorderRadius.circular(8),
     child: Padding(
-      padding: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.only(right: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -155,11 +155,11 @@ class _MonthColumn extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Color(0xFF6C5926),
-              fontSize: 12,
+              fontSize: HomeCompactMetrics.monthYear,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 2),
           Expanded(
             child: FittedBox(
               fit: BoxFit.scaleDown,
@@ -173,15 +173,15 @@ class _MonthColumn extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Color(0xFF202020),
-                      fontSize: 27,
+                      fontSize: HomeCompactMetrics.monthValue,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: -1.1,
+                      letterSpacing: -0.7,
                     ),
                   ),
                   const Icon(
                     Icons.arrow_drop_down_rounded,
                     color: Color(0xFF202020),
-                    size: 24,
+                    size: 20,
                   ),
                 ],
               ),
@@ -218,11 +218,11 @@ class _TotalColumn extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: Color(0xFF6C5926),
-            fontSize: 12,
+            fontSize: HomeCompactMetrics.overviewLabel,
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: 3),
         Expanded(
           child: Align(
             alignment: Alignment.centerLeft,
