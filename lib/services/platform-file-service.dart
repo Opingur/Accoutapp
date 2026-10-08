@@ -1,13 +1,14 @@
 import 'dart:io';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:share_plus/share_plus.dart';
 
 /// Platform-aware file sharing/saving service
 /// On mobile: Uses share_plus
 /// On desktop: Uses file_selector for "Save As" dialog
 class PlatformFileService {
-
   /// Check if we're running on a desktop platform
   static bool get isDesktop {
     if (kIsWeb) return false;
@@ -37,8 +38,42 @@ class PlatformFileService {
     }
   }
 
+  /// Opens the operating system's save dialog instead of the share sheet.
+  ///
+  /// Excel exports use this on Android so users select the destination through
+  /// the Storage Access Framework without requesting broad storage access.
+  static Future<bool> saveFileWithSystemPicker({
+    required String filePath,
+    required String suggestedName,
+    required String mimeType,
+  }) async {
+    final file = File(filePath);
+    if (!await file.exists()) return false;
+
+    if (isDesktop) return _saveFileAs(file, suggestedName);
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      try {
+        final savedPath = await FlutterFileDialog.saveFile(
+          params: SaveFileDialogParams(
+            sourceFilePath: file.path,
+            fileName: suggestedName,
+            mimeTypesFilter: [mimeType],
+          ),
+        );
+        return savedPath != null;
+      } catch (e) {
+        print('Error saving file with system picker: $e');
+        return false;
+      }
+    }
+    return _shareFile(file);
+  }
+
   /// Save file using "Save As" dialog (desktop only)
-  static Future<bool> _saveFileAs(File sourceFile, String? suggestedName) async {
+  static Future<bool> _saveFileAs(
+    File sourceFile,
+    String? suggestedName,
+  ) async {
     try {
       final fileName = suggestedName ?? sourceFile.path.split('/').last;
 
@@ -77,7 +112,9 @@ class PlatformFileService {
       );
 
       return result.status == ShareResultStatus.success ||
-             result.status == ShareResultStatus.unavailable; // unavailable means it worked on some platforms
+          result.status ==
+              ShareResultStatus
+                  .unavailable; // unavailable means it worked on some platforms
     } catch (e) {
       print('Error sharing file: $e');
       return false;
@@ -112,11 +149,7 @@ class PlatformFileService {
           mimeTypes: ['application/x-sqlite3'],
         );
       default:
-        return const XTypeGroup(
-          label: 'All files',
-          extensions: ['*'],
-        );
+        return const XTypeGroup(label: 'All files', extensions: ['*']);
     }
   }
 }
-

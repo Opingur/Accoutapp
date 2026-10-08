@@ -14,6 +14,7 @@ import 'package:piggybank/services/home-widget-service.dart';
 import 'package:piggybank/services/service-config.dart';
 import 'package:piggybank/settings/backup-page.dart';
 import 'package:piggybank/settings/backup-restore-dialogs.dart';
+import 'package:piggybank/settings/excel_export_page.dart';
 // import 'package:piggybank/settings/csv_import/csv_import_page.dart';
 import 'package:piggybank/settings/customization-page.dart';
 import 'package:piggybank/settings/home-widgets-page.dart';
@@ -45,10 +46,11 @@ class TabSettings extends StatelessWidget {
             .addTrueButtonName("Yes".i18n)
             .addFalseButtonName("No".i18n);
     var ok = await showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return premiumDialog.build(context);
-        });
+      context: context,
+      builder: (BuildContext context) {
+        return premiumDialog.build(context);
+      },
+    );
     if (ok) {
       await database.deleteDatabase();
       AlertDialogBuilder resultDialog =
@@ -56,10 +58,11 @@ class TabSettings extends StatelessWidget {
               .addSubtitle("All the data has been deleted".i18n)
               .addTrueButtonName("OK");
       await showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return resultDialog.build(context);
-          });
+        context: context,
+        builder: (BuildContext context) {
+          return resultDialog.build(context);
+        },
+      );
     }
   }
 
@@ -128,9 +131,8 @@ class TabSettings extends StatelessWidget {
   }
 
   goToLogs(BuildContext context) async {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => const LogScreen(),
-    ));
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (context) => const LogScreen()));
   }
 
   Future<void> _launchURL(BuildContext context, String url) async {
@@ -162,7 +164,8 @@ class TabSettings extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                    'Could not open link. Make sure xdg-utils is installed.'),
+                  'Could not open link. Make sure xdg-utils is installed.',
+                ),
                 duration: Duration(seconds: 5),
               ),
             );
@@ -218,39 +221,30 @@ class TabSettings extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-        child: Scaffold(
-      appBar: AppBar(
-        title: Text('Settings'.i18n),
-      ),
-      body: ListView(
-        children: <Widget>[
-          SettingsItem(
-              icon: Icon(
-                Icons.wallpaper,
-                color: Colors.white,
-              ),
+      child: Scaffold(
+        appBar: AppBar(title: Text('Settings'.i18n)),
+        body: ListView(
+          children: <Widget>[
+            SettingsItem(
+              icon: Icon(Icons.wallpaper, color: Colors.white),
               iconBackgroundColor: Colors.blue.shade600,
               title: 'Customization'.i18n,
               subtitle: "Visual settings and more".i18n,
-              onPressed: () async => await goToCustomizationPage(context)),
-          if (HomeWidgetService.isSupported)
-            SettingsItem(
-                icon: Icon(
-                  Icons.widgets,
-                  color: Colors.white,
-                ),
+              onPressed: () async => await goToCustomizationPage(context),
+            ),
+            if (HomeWidgetService.isSupported)
+              SettingsItem(
+                icon: Icon(Icons.widgets, color: Colors.white),
                 iconBackgroundColor: Colors.teal.shade600,
                 title: 'Home screen widgets'.i18n,
                 subtitle: "Pin totals and budgets to your home screen".i18n,
-                onPressed: () async => await goToHomeWidgetsPage(context)),
-          Divider(),
-          Stack(
-            children: [
-              SettingsItem(
-                  icon: Icon(
-                    Icons.currency_exchange,
-                    color: Colors.white,
-                  ),
+                onPressed: () async => await goToHomeWidgetsPage(context),
+              ),
+            Divider(),
+            Stack(
+              children: [
+                SettingsItem(
+                  icon: Icon(Icons.currency_exchange, color: Colors.white),
                   iconBackgroundColor: Colors.green.shade700,
                   title: 'Currencies'.i18n,
                   subtitle: "Manage your currencies and conversion rates".i18n,
@@ -260,179 +254,166 @@ class TabSettings extends StatelessWidget {
                           await Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (context) => PremiumSplashScreen()),
+                              builder: (context) => PremiumSplashScreen(),
+                            ),
                           );
-                        }),
-              !ServiceConfig.isPremium
-                  ? Container(
-                      margin: EdgeInsets.fromLTRB(8, 8, 0, 0),
-                      child: getProLabel(labelFontSize: 10.0),
-                    )
-                  : Container()
-            ],
-          ),
-          SettingsItem(
-              icon: Icon(
-                Icons.repeat,
-                color: Colors.white,
-              ),
+                        },
+                ),
+                !ServiceConfig.isPremium
+                    ? Container(
+                        margin: EdgeInsets.fromLTRB(8, 8, 0, 0),
+                        child: getProLabel(labelFontSize: 10.0),
+                      )
+                    : Container(),
+              ],
+            ),
+            SettingsItem(
+              icon: Icon(Icons.repeat, color: Colors.white),
               iconBackgroundColor: Colors.pink.shade600,
               title: 'Recurrent Records'.i18n,
               subtitle: "View or delete recurrent records".i18n,
-              onPressed: () async => await goToRecurrentRecordPage(context)),
-          SettingsItem(
-              icon: Icon(
-                Icons.tag,
-                color: Colors.white,
-              ),
+              onPressed: () async => await goToRecurrentRecordPage(context),
+            ),
+            SettingsItem(
+              icon: Icon(Icons.tag, color: Colors.white),
               iconBackgroundColor: Colors.amber.shade600,
               title: 'Tags'.i18n,
               subtitle: "Manage your existing tags".i18n,
-              onPressed: () async => await goToTagsPage(context)),
-          Divider(),
-          SettingsItem(
-              icon: Icon(
-                Icons.backup,
-                color: Colors.white,
-              ),
+              onPressed: () async => await goToTagsPage(context),
+            ),
+            Divider(),
+            SettingsItem(
+              icon: Icon(Icons.backup, color: Colors.white),
               iconBackgroundColor: Colors.orange.shade600,
               title: 'Backup'.i18n,
               subtitle: "Create backup and change settings".i18n,
-              onPressed: () async => await goToBackupPage(context)),
-          Stack(
-            children: [
-              SettingsItem(
-                icon: Icon(
-                  Icons.restore_page,
-                  color: Colors.white,
+              onPressed: () async => await goToBackupPage(context),
+            ),
+            Stack(
+              children: [
+                SettingsItem(
+                  icon: Icon(Icons.restore_page, color: Colors.white),
+                  iconBackgroundColor: Colors.teal,
+                  title: 'Restore Backup'.i18n,
+                  subtitle: "Restore data from a backup file".i18n,
+                  onPressed: ServiceConfig.isPremium
+                      ? () async =>
+                            await BackupRestoreDialog.importFromBackupFile(
+                              context,
+                            )
+                      : () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PremiumSplashScreen(),
+                            ),
+                          );
+                        },
                 ),
-                iconBackgroundColor: Colors.teal,
-                title: 'Restore Backup'.i18n,
-                subtitle: "Restore data from a backup file".i18n,
-                onPressed: ServiceConfig.isPremium
-                    ? () async =>
-                        await BackupRestoreDialog.importFromBackupFile(context)
-                    : () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => PremiumSplashScreen()),
-                        );
-                      },
-              ),
-              !ServiceConfig.isPremium
-                  ? Container(
-                      margin: EdgeInsets.fromLTRB(8, 8, 0, 0),
-                      child: getProLabel(labelFontSize: 10.0),
-                    )
-                  : Container()
-            ],
-          ),
-          // CSV import feature — free for all users
-          SettingsItem(
-            icon: Icon(
-              Icons.file_upload,
-              color: Colors.white,
+                !ServiceConfig.isPremium
+                    ? Container(
+                        margin: EdgeInsets.fromLTRB(8, 8, 0, 0),
+                        child: getProLabel(labelFontSize: 10.0),
+                      )
+                    : Container(),
+              ],
             ),
-            iconBackgroundColor: Colors.indigo.shade600,
-            title: 'Import from CSV'.i18n,
-            subtitle: "Import records from a CSV file or clipboard".i18n,
-            onPressed: () async => await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const CsvImportPage()),
-                    )
-          ),
-          SettingsItem(
-            icon: Icon(
-              Icons.delete_outline,
-              color: Colors.white,
-            ),
-            iconBackgroundColor: Colors.teal,
-            title: 'Delete'.i18n,
-            subtitle: 'Delete all the data'.i18n,
-            onPressed: () async => await deleteAllData(context),
-          ),
-          Divider(),
-          SettingsItem(
-            icon: Icon(
-              Icons.info_outline,
-              color: Colors.white,
-            ),
-            iconBackgroundColor: Colors.tealAccent.shade700,
-            title: 'Info'.i18n,
-            subtitle: 'Privacy policy and credits'.i18n,
-            onPressed: () async => await _launchURL(context,
-                "https://oinkoin.com/privacy"),
-          ),
-          // SettingsItem(
-          //   icon: Icon(
-          //     Icons.people_outline,
-          //     color: Colors.white,
-          //   ),
-          //   iconBackgroundColor: Colors.deepPurple.shade400,
-          //   title: 'Contributors'.i18n,
-          //   subtitle: 'The people who built Oinkoin'.i18n,
-          //   onPressed: () async {
-          //     await Navigator.push(
-          //       context,
-          //       MaterialPageRoute(builder: (context) => ContributorsPage()),
-          //     );
-          //   },
-          // ),
-          SettingsItem(
-            icon: Icon(
-              Icons.campaign,
-              color: Colors.white,
-            ),
-            iconBackgroundColor: Colors.orange.shade700,
-            title: 'Announcements'.i18n,
-            subtitle: "Recent news and communications".i18n,
-            onPressed: () async => await goToAnnouncementsPage(context),
-          ),
-          SettingsItem(
-            icon: Icon(
-              Icons.support_agent,
-              color: Colors.white,
-            ),
-            iconBackgroundColor: Colors.blue.shade700,
-            title: 'Support'.i18n,
-            subtitle: "Get help, give feedback, or contribute".i18n,
-            onPressed: () async {
-              await Navigator.push(
+            // CSV import feature — free for all users
+            SettingsItem(
+              icon: Icon(Icons.file_upload, color: Colors.white),
+              iconBackgroundColor: Colors.indigo.shade600,
+              title: 'Import from CSV'.i18n,
+              subtitle: "Import records from a CSV file or clipboard".i18n,
+              onPressed: () async => await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => FeedbackPage()),
-              );
-            },
-          ),
-          SettingsItem(
-            icon: Icon(
-              Icons.receipt_long,
-              color: Colors.white,
+                MaterialPageRoute(builder: (context) => const CsvImportPage()),
+              ),
             ),
-            iconBackgroundColor: Colors.grey.shade700,
-            title: 'Logs'.i18n,
-            subtitle: "Got problems? Check out the logs".i18n,
-            onPressed: () async => await goToLogs(context),
-          ),
-          if (kDebugMode || ServiceConfig.packageName!.contains("alpha"))
-            ValueListenableBuilder<bool>(
-              valueListenable: ServiceConfig.premiumNotifier,
-              builder: (context, isPremium, child) {
-                return SettingsItem(
-                  icon: Icon(
-                    Icons.bug_report,
-                    color: Colors.white,
-                  ),
-                  iconBackgroundColor: Colors.grey.shade700,
-                  title: 'Debug: Switch Pro',
-                  subtitle: isPremium ? 'Premium: ON' : 'Premium: OFF',
-                  onPressed: ServiceConfig.togglePremium,
+            SettingsItem(
+              icon: const Icon(Icons.table_view_outlined, color: Colors.white),
+              iconBackgroundColor: Colors.amber.shade700,
+              title: '导出 Excel',
+              subtitle: '导出账单明细、汇总和图表分析',
+              onPressed: () async => await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ExcelExportPage(),
+                ),
+              ),
+            ),
+            SettingsItem(
+              icon: Icon(Icons.delete_outline, color: Colors.white),
+              iconBackgroundColor: Colors.teal,
+              title: 'Delete'.i18n,
+              subtitle: 'Delete all the data'.i18n,
+              onPressed: () async => await deleteAllData(context),
+            ),
+            Divider(),
+            SettingsItem(
+              icon: Icon(Icons.info_outline, color: Colors.white),
+              iconBackgroundColor: Colors.tealAccent.shade700,
+              title: 'Info'.i18n,
+              subtitle: 'Privacy policy and credits'.i18n,
+              onPressed: () async =>
+                  await _launchURL(context, "https://oinkoin.com/privacy"),
+            ),
+            // SettingsItem(
+            //   icon: Icon(
+            //     Icons.people_outline,
+            //     color: Colors.white,
+            //   ),
+            //   iconBackgroundColor: Colors.deepPurple.shade400,
+            //   title: 'Contributors'.i18n,
+            //   subtitle: 'The people who built Oinkoin'.i18n,
+            //   onPressed: () async {
+            //     await Navigator.push(
+            //       context,
+            //       MaterialPageRoute(builder: (context) => ContributorsPage()),
+            //     );
+            //   },
+            // ),
+            SettingsItem(
+              icon: Icon(Icons.campaign, color: Colors.white),
+              iconBackgroundColor: Colors.orange.shade700,
+              title: 'Announcements'.i18n,
+              subtitle: "Recent news and communications".i18n,
+              onPressed: () async => await goToAnnouncementsPage(context),
+            ),
+            SettingsItem(
+              icon: Icon(Icons.support_agent, color: Colors.white),
+              iconBackgroundColor: Colors.blue.shade700,
+              title: 'Support'.i18n,
+              subtitle: "Get help, give feedback, or contribute".i18n,
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => FeedbackPage()),
                 );
               },
             ),
-        ],
+            SettingsItem(
+              icon: Icon(Icons.receipt_long, color: Colors.white),
+              iconBackgroundColor: Colors.grey.shade700,
+              title: 'Logs'.i18n,
+              subtitle: "Got problems? Check out the logs".i18n,
+              onPressed: () async => await goToLogs(context),
+            ),
+            if (kDebugMode || ServiceConfig.packageName!.contains("alpha"))
+              ValueListenableBuilder<bool>(
+                valueListenable: ServiceConfig.premiumNotifier,
+                builder: (context, isPremium, child) {
+                  return SettingsItem(
+                    icon: Icon(Icons.bug_report, color: Colors.white),
+                    iconBackgroundColor: Colors.grey.shade700,
+                    title: 'Debug: Switch Pro',
+                    subtitle: isPremium ? 'Premium: ON' : 'Premium: OFF',
+                    onPressed: ServiceConfig.togglePremium,
+                  );
+                },
+              ),
+          ],
+        ),
       ),
-    ));
+    );
   }
 }

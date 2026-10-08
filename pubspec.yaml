@@ -41,6 +41,8 @@ dependencies:
   flutter_displaymode: ^0.7.0
   future_progress_dialog: ^0.2.1
   csv: ^8.0.0
+  excel_community: ^2.6.0
+  flutter_file_dialog: ^3.3.3
   encrypt: ^5.0.3
   talker_flutter: ^5.1.20
 
@@ -70,6 +72,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  archive: ^4.0.9
   build_runner: ^2.16.0
   test: ^1.31.1
   mockito: ^5.8.1
