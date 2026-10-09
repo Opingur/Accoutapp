@@ -140,15 +140,16 @@ class SmartImportCandidate {
   bool get canCommit => state == SmartImportRowState.ready;
 
   SmartImportRowState get state {
+    if (isSkipped) return SmartImportRowState.skipped;
     if (issues.any((issue) => issue.startsWith('错误：'))) {
       return SmartImportRowState.error;
     }
-    if (isSkipped) return SmartImportRowState.skipped;
     if (requiresDuplicateDecision &&
         duplicateDecision == SmartImportDuplicateDecision.undecided) {
       return SmartImportRowState.suspectedDuplicate;
     }
-    if (duplicate == SmartImportDuplicate.exactExisting) {
+    if (duplicate == SmartImportDuplicate.exactExisting &&
+        duplicateDecision != SmartImportDuplicateDecision.keep) {
       return SmartImportRowState.duplicate;
     }
     if (type == SmartImportTransactionType.transfer &&
@@ -214,6 +215,9 @@ class SmartImportPreview {
       candidates.where((candidate) => candidate.canCommit).length;
   int get skippedRows =>
       candidates.where((candidate) => candidate.isSkipped).length;
+  int get needsWallet => candidates
+      .where((candidate) => candidate.state == SmartImportRowState.needsWallet)
+      .length;
   int get expenseCount => candidates
       .where(
         (candidate) => candidate.type == SmartImportTransactionType.expense,
@@ -238,8 +242,14 @@ class SmartImportPreview {
   int get possibleDuplicates => candidates
       .where(
         (candidate) =>
-            candidate.duplicate == SmartImportDuplicate.possibleExisting,
+            candidate.state == SmartImportRowState.suspectedDuplicate,
       )
+      .length;
+  int get unresolvedRows => candidates
+      .where((candidate) => !candidate.isSkipped && !candidate.canCommit)
+      .length;
+  int get attentionRows => candidates
+      .where((candidate) => candidate.state != SmartImportRowState.ready)
       .length;
   int get exactDuplicates => candidates
       .where((candidate) => candidate.duplicate != SmartImportDuplicate.none)

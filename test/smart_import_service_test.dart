@@ -217,6 +217,62 @@ void main() {
     );
   });
 
+  test('reports every in-file duplicate as needing an explicit decision', () {
+    final buffer = StringBuffer('日期,时间,金额,标题,分类,钱包\n');
+    for (var index = 0; index < 393; index++) {
+      buffer.writeln(
+        '2026-10-01,08:${(index % 60).toString().padLeft(2, '0')}:${(index ~/ 60).toString().padLeft(2, '0')},-1.90,正常账单$index,交通,现金',
+      );
+    }
+    for (var index = 0; index < 12; index++) {
+      final row =
+          '2026-10-07,12:31:${index.toString().padLeft(2, '0')},-1.90,校易行,交通,现金';
+      buffer
+        ..writeln(row)
+        ..writeln(row);
+    }
+
+    final preview = previewFor(buffer.toString());
+
+    expect(preview.totalRows, 417);
+    expect(preview.validRows, 405);
+    expect(preview.possibleDuplicates, 12);
+    expect(
+      preview.validRows + preview.skippedRows + preview.unresolvedRows,
+      preview.totalRows,
+    );
+    expect(
+      preview.candidates
+          .where(
+            (candidate) =>
+                candidate.state == SmartImportRowState.suspectedDuplicate,
+          )
+          .length,
+      12,
+    );
+  });
+
+  test('allows an explicitly retained database duplicate to be imported', () {
+    final existing = Record(
+      -20,
+      '午餐',
+      dining,
+      DateTime.utc(2026, 10, 1, 12),
+      walletId: 1,
+      timeZoneName: 'Etc/UTC',
+    );
+    final preview = previewFor(
+      '日期,时间,金额,标题,分类,钱包\n'
+      '2026-10-01,12:00:00,-20,午餐,餐饮,现金',
+      existing: [existing],
+    );
+    final candidate = preview.candidates.single;
+
+    expect(candidate.state, SmartImportRowState.skipped);
+    candidate.duplicateDecision = SmartImportDuplicateDecision.keep;
+    expect(candidate.state, SmartImportRowState.ready);
+  });
+
   test(
     'maps transfer wallets and does not treat transfer as income or expense',
     () {

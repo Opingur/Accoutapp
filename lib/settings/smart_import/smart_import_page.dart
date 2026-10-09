@@ -10,6 +10,8 @@ import 'package:piggybank/services/profile-service.dart';
 import 'package:piggybank/services/service-config.dart';
 import 'package:piggybank/services/smart_import_service.dart';
 
+enum _SmartImportPreviewFilter { attention, all }
+
 /// Safe CSV/XLSX import workflow. Parsing remains read-only until the user
 /// completes the explicit two-step confirmation at the bottom of this page.
 class SmartImportPage extends StatefulWidget {
@@ -31,6 +33,7 @@ class _SmartImportPageState extends State<SmartImportPage> {
   String? _fileName;
   String? _error;
   bool _loading = false;
+  var _previewFilter = _SmartImportPreviewFilter.attention;
 
   Future<void> _pickFile() async {
     setState(() {
@@ -316,6 +319,27 @@ class _SmartImportPageState extends State<SmartImportPage> {
           : _table == null
           ? _buildPicker()
           : _buildPreview(),
+      bottomNavigationBar: _loading || _table == null
+          ? null
+          : _buildConfirmBar(),
+    );
+  }
+
+  Widget _buildConfirmBar() {
+    return Material(
+      elevation: 6,
+      color: Theme.of(context).colorScheme.surface,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          child: FilledButton.icon(
+            onPressed: _confirmImport,
+            icon: const Icon(Icons.upload),
+            label: const Text('确认导入'),
+          ),
+        ),
+      ),
     );
   }
 
@@ -360,8 +384,15 @@ class _SmartImportPageState extends State<SmartImportPage> {
     final workbook = _workbook!;
     final table = _table!;
     final preview = _preview!;
+    final displayedCandidates = _previewFilter == _SmartImportPreviewFilter.all
+        ? preview.candidates
+        : preview.candidates
+              .where(
+                (candidate) => candidate.state != SmartImportRowState.ready,
+              )
+              .toList();
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
         Text(_fileName ?? '', style: Theme.of(context).textTheme.titleMedium),
         if (workbook.tables.length > 1) ...[
@@ -399,7 +430,9 @@ class _SmartImportPageState extends State<SmartImportPage> {
         const SizedBox(height: 8),
         _summary(preview),
         const SizedBox(height: 12),
-        const Text('请先处理待分类、钱包映射、疑似重复和数据错误。点击确认导入后仍会显示最终汇总，二次确认前不会写入数据库。'),
+        const Text('默认仅显示需要处理的账单。正常账单只计入汇总；点击确认导入后仍会显示最终汇总，二次确认前不会写入数据库。'),
+        const SizedBox(height: 12),
+        _buildPreviewFilter(preview),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -418,19 +451,60 @@ class _SmartImportPageState extends State<SmartImportPage> {
             OutlinedButton.icon(
               onPressed: _skipConfirmedDuplicates,
               icon: const Icon(Icons.playlist_remove),
-              label: const Text('跳过确认重复'),
+              label: const Text('跳过数据库重复'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => _resolveSuspectedDuplicates(
+                SmartImportDuplicateDecision.keep,
+              ),
+              icon: const Icon(Icons.playlist_add_check),
+              label: const Text('保留全部疑似重复'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => _resolveSuspectedDuplicates(
+                SmartImportDuplicateDecision.skip,
+              ),
+              icon: const Icon(Icons.playlist_remove),
+              label: const Text('跳过全部疑似重复'),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        ...preview.candidates.map(_candidateTile),
-        const SizedBox(height: 20),
-        FilledButton.icon(
-          onPressed: _confirmImport,
-          icon: const Icon(Icons.upload),
-          label: const Text('确认导入'),
+        if (displayedCandidates.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: Text('没有待处理账单，可以直接确认导入。')),
+          )
+        else
+          ...displayedCandidates.map(_candidateTile),
+      ],
+    );
+  }
+
+  Widget _buildPreviewFilter(SmartImportPreview preview) {
+    Widget option(_SmartImportPreviewFilter filter, String label) {
+      final selected = _previewFilter == filter;
+      return Expanded(
+        child: selected
+            ? FilledButton(
+                onPressed: () => setState(() => _previewFilter = filter),
+                child: Text(label),
+              )
+            : OutlinedButton(
+                onPressed: () => setState(() => _previewFilter = filter),
+                child: Text(label),
+              ),
+      );
+    }
+
+    return Row(
+      children: [
+        option(
+          _SmartImportPreviewFilter.attention,
+          '待处理 ${preview.attentionRows}',
         ),
-        const SizedBox(height: 24),
+        const SizedBox(width: 8),
+        option(_SmartImportPreviewFilter.all, '查看全部 ${preview.totalRows}'),
       ],
     );
   }
@@ -472,7 +546,10 @@ class _SmartImportPageState extends State<SmartImportPage> {
             Text('转账 ${preview.transferCount}'),
             Text('待分类 ${preview.needsCategory}'),
             Text('疑似重复 ${preview.possibleDuplicates}'),
+            Text('待映射钱包 ${preview.needsWallet}'),
             Text('错误 ${preview.errors}'),
+            Text('已跳过 ${preview.skippedRows}'),
+            Text('待处理 ${preview.unresolvedRows}'),
           ],
         ),
       ),
@@ -514,7 +591,7 @@ class _SmartImportPageState extends State<SmartImportPage> {
           FilledButton(
             onPressed: () =>
                 Navigator.pop(context, SmartImportDuplicateDecision.keep),
-            child: const Text('保留此条'),
+            child: const Text('保留导入'),
           ),
         ],
       ),
@@ -529,6 +606,18 @@ class _SmartImportPageState extends State<SmartImportPage> {
       for (final candidate in _preview!.candidates) {
         if (candidate.duplicate == SmartImportDuplicate.exactExisting) {
           candidate.duplicateDecision = SmartImportDuplicateDecision.skip;
+        }
+      }
+    });
+  }
+
+  void _resolveSuspectedDuplicates(SmartImportDuplicateDecision decision) {
+    setState(() {
+      for (final candidate in _preview!.candidates) {
+        if (candidate.requiresDuplicateDecision &&
+            candidate.duplicateDecision ==
+                SmartImportDuplicateDecision.undecided) {
+          candidate.duplicateDecision = decision;
         }
       }
     });
@@ -700,12 +789,13 @@ class _SmartImportPageState extends State<SmartImportPage> {
         .where((candidate) => !candidate.isSkipped && !candidate.canCommit)
         .toList();
     if (unresolved.isNotEmpty) {
+      setState(() => _previewFilter = _SmartImportPreviewFilter.attention);
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('还有未处理账单'),
           content: Text(
-            '仍有 ${unresolved.length} 条记录需要分类、钱包、重复或错误处理。请修正或逐条跳过后再提交。',
+            '仍有 ${unresolved.length} 条记录需要处理。已自动切换到“待处理”列表，请查看每条状态和原因后修正、保留重复或跳过。',
           ),
           actions: [
             TextButton(
@@ -764,7 +854,8 @@ class _SmartImportPageState extends State<SmartImportPage> {
       builder: (context) => AlertDialog(
         title: const Text('最终确认导入'),
         content: Text(
-          '准备新增 ${importable.length} 笔\n'
+          '总记录 ${preview.totalRows} 笔\n'
+          '实际写入 ${importable.length} 笔\n'
           '跳过 ${preview.totalRows - importable.length} 笔\n'
           '收入 ${currency.format(income)}\n'
           '支出 ${currency.format(expense)}\n'
@@ -829,6 +920,7 @@ class _SmartImportPageState extends State<SmartImportPage> {
 
   Widget _candidateTile(SmartImportCandidate candidate) {
     final isProblem = candidate.state != SmartImportRowState.ready;
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -848,6 +940,7 @@ class _SmartImportPageState extends State<SmartImportPage> {
             ),
             const SizedBox(height: 4),
             Text(
+              '原始第 ${candidate.sourceRow} 行 · '
               '${candidate.dateTime == null ? '日期无效' : DateFormat('yyyy-MM-dd HH:mm:ss').format(candidate.dateTime!)} · ${candidate.typeLabel}',
             ),
             Text(
@@ -860,8 +953,18 @@ class _SmartImportPageState extends State<SmartImportPage> {
             const SizedBox(height: 6),
             Text(
               candidate.stateLabel,
-              style: TextStyle(color: isProblem ? Colors.red : Colors.green),
+              style: TextStyle(
+                color: isProblem ? colorScheme.error : colorScheme.primary,
+              ),
             ),
+            if (isProblem)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  _stateReason(candidate),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             if (candidate.issues.isNotEmpty)
               TextButton.icon(
                 onPressed: () => _showIssues(candidate),
@@ -904,6 +1007,24 @@ class _SmartImportPageState extends State<SmartImportPage> {
         ),
       ),
     );
+  }
+
+  String _stateReason(SmartImportCandidate candidate) {
+    return switch (candidate.state) {
+      SmartImportRowState.needsCategory => '未能匹配到现有分类，请选择分类、创建自定义分类或跳过。',
+      SmartImportRowState.needsWallet => '未能匹配到钱包，请选择钱包、确认创建新钱包或跳过。',
+      SmartImportRowState.suspectedDuplicate =>
+        candidate.duplicate == SmartImportDuplicate.inFile
+            ? '同一文件中存在相同完整账单信息。不会自动丢弃，请确认保留导入或跳过。'
+            : '与已有账单或缺少精确时间的账单相似。不会自动丢弃，请确认保留导入或跳过。',
+      SmartImportRowState.duplicate => '数据库中已有完全相同账单，默认跳过；如确认是独立消费，可选择保留导入。',
+      SmartImportRowState.skipped =>
+        candidate.duplicate == SmartImportDuplicate.exactExisting
+            ? '已按数据库重复保护默认跳过。可选择“处理重复”后保留导入。'
+            : '此条已选择跳过，不会写入数据库。',
+      SmartImportRowState.error => '此条数据无效，请查看提示后修正或跳过。',
+      SmartImportRowState.ready => '',
+    };
   }
 
   String _fieldLabel(SmartImportField field) => switch (field) {

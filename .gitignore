@@ -74,6 +74,26 @@ __pycache__/
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 /android/key.properties
+/android/*.keystore
+
+# Release signing and local secrets must remain outside the repository.
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+.env
+.env.*
+
+# Local release artifacts and validation output.
+*.apk
+*.aab
+*.obackup
+/build-error.txt
+/test-full.log
+/build/ui-validation/
+/build/excel-validation/
+/build/import-validation/
 /assets/adi-registration.properties
 /build-debug-files/
 /store-assets/
