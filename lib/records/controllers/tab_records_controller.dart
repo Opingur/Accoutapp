@@ -83,7 +83,6 @@ class TabRecordsController {
     await reloadProfileName();
     await updateRecurrentRecordsAndFetchRecords();
     await _fetchCategories();
-    await _loadWallets();
   }
 
   Future<void> reloadProfileName() async {
@@ -99,13 +98,11 @@ class TabRecordsController {
 
   Future<void> onResume() async {
     await updateRecurrentRecordsAndFetchRecords();
-    await _loadWallets();
     runAutomaticBackup(null);
   }
 
   Future<void> onTabChange() async {
     await updateRecurrentRecordsAndFetchRecords();
-    await _loadWallets();
     await _categoryTabPageViewStateKey.currentState?.refreshCategories();
   }
 

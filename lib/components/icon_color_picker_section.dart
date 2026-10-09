@@ -32,7 +32,8 @@ class IconColorPickerSection extends StatefulWidget {
     IconData? icon,
     int? iconCodePoint,
     Color? color,
-  ) onChange;
+  )
+  onChange;
 
   const IconColorPickerSection({
     Key? key,
@@ -41,8 +42,8 @@ class IconColorPickerSection extends StatefulWidget {
     this.initialColor,
     List<Color?>? colors,
     required this.onChange,
-  })  : colors = colors ?? const [],
-        super(key: key);
+  }) : colors = colors ?? const [],
+       super(key: key);
 
   @override
   _IconColorPickerSectionState createState() => _IconColorPickerSectionState();
@@ -124,8 +125,10 @@ class _IconColorPickerSectionState extends State<IconColorPickerSection> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("Choose a color".i18n,
-                    style: TextStyle(color: Colors.white)),
+                Text(
+                  "Choose a color".i18n,
+                  style: TextStyle(color: Colors.white),
+                ),
                 IconButton(
                   icon: const Icon(Icons.close),
                   color: Colors.white,
@@ -176,8 +179,11 @@ class _IconColorPickerSectionState extends State<IconColorPickerSection> {
                       ? SizedBox(
                           width: 50,
                           height: 50,
-                          child:
-                              Icon(Icons.check, color: Colors.white, size: 20),
+                          child: Icon(
+                            Icons.check,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         )
                       : Container(),
                   onTap: () {
@@ -212,15 +218,16 @@ class _IconColorPickerSectionState extends State<IconColorPickerSection> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
+                      color: Theme.of(context).colorScheme.onSurface
                           .withValues(alpha: 0.8),
                       width: 2.0,
                     ),
                   ),
-                  child: Icon(Icons.not_interested,
-                      color: Theme.of(context).colorScheme.onSurface, size: 30),
+                  child: Icon(
+                    Icons.not_interested,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    size: 30,
+                  ),
                 ),
                 onTap: () {
                   setState(() {
@@ -252,7 +259,12 @@ class _IconColorPickerSectionState extends State<IconColorPickerSection> {
                     begin: Alignment.topRight,
                     end: Alignment.bottomLeft,
                     colors: _pickedColor == null
-                        ? [Colors.yellow, Colors.red, Colors.indigo, Colors.teal]
+                        ? [
+                            Colors.yellow,
+                            Colors.red,
+                            Colors.indigo,
+                            Colors.teal,
+                          ]
                         : [_pickedColor!, _pickedColor!],
                   ),
                 ),
@@ -260,8 +272,7 @@ class _IconColorPickerSectionState extends State<IconColorPickerSection> {
                   child: SizedBox(
                     width: 70,
                     height: 70,
-                    child:
-                        Icon(Icons.colorize, color: Colors.white, size: 30),
+                    child: Icon(Icons.colorize, color: Colors.white, size: 30),
                   ),
                   onTap: ServiceConfig.isPremium
                       ? _openColorPicker
@@ -269,7 +280,8 @@ class _IconColorPickerSectionState extends State<IconColorPickerSection> {
                           await Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => PremiumSplashScreen()),
+                              builder: (_) => PremiumSplashScreen(),
+                            ),
                           );
                         },
                 ),
@@ -314,8 +326,8 @@ class _IconColorPickerSectionState extends State<IconColorPickerSection> {
   Widget _getIconsGrid() {
     var surfaceContainer = Theme.of(context).colorScheme.surfaceContainer;
     var bottomActionColor = Theme.of(context).colorScheme.surfaceContainerLow;
-    var buttonColors =
-        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
+    var buttonColors = Theme.of(context).colorScheme.onSurface
+        .withValues(alpha: 0.6);
     return Column(
       children: [
         Offstage(
@@ -327,7 +339,9 @@ class _IconColorPickerSectionState extends State<IconColorPickerSection> {
               height: 256,
               checkPlatformCompatibility: true,
               emojiViewConfig: emojipicker.EmojiViewConfig(
-                  emojiSizeMax: 28, backgroundColor: surfaceContainer),
+                emojiSizeMax: 28,
+                backgroundColor: surfaceContainer,
+              ),
               categoryViewConfig: emojipicker.CategoryViewConfig(
                 backgroundColor: bottomActionColor,
                 iconColorSelected: buttonColors,
@@ -338,7 +352,7 @@ class _IconColorPickerSectionState extends State<IconColorPickerSection> {
                 showBackspaceButton: false,
               ),
               searchViewConfig: emojipicker.SearchViewConfig(
-                backgroundColor: Colors.white,
+                backgroundColor: surfaceContainer,
               ),
             ),
             onEmojiSelected: (c, emoji) {
@@ -366,21 +380,24 @@ class _IconColorPickerSectionState extends State<IconColorPickerSection> {
               child: IconButton(
                 icon: ServiceConfig.isPremium
                     ? Text(_currentEmoji, style: TextStyle(fontSize: 24))
-                    : Stack(children: [
-                        Text(_currentEmoji, style: TextStyle(fontSize: 24)),
-                        if (!ServiceConfig.isPremium)
-                          Container(
-                            margin: EdgeInsets.fromLTRB(20, 20, 0, 0),
-                            child: getProLabel(labelFontSize: 10.0),
-                          ),
-                      ]),
+                    : Stack(
+                        children: [
+                          Text(_currentEmoji, style: TextStyle(fontSize: 24)),
+                          if (!ServiceConfig.isPremium)
+                            Container(
+                              margin: EdgeInsets.fromLTRB(20, 20, 0, 0),
+                              child: getProLabel(labelFontSize: 10.0),
+                            ),
+                        ],
+                      ),
                 onPressed: ServiceConfig.isPremium
                     ? () => setState(() => _emojiShowing = !_emojiShowing)
                     : () async {
                         await Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => PremiumSplashScreen()),
+                            builder: (_) => PremiumSplashScreen(),
+                          ),
                         );
                       },
               ),
@@ -390,10 +407,8 @@ class _IconColorPickerSectionState extends State<IconColorPickerSection> {
                 icon: Icon(_icons[index]),
                 color: (_chosenIconIndex == index)
                     ? Theme.of(context).colorScheme.error
-                    : Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.6),
+                    : Theme.of(context).colorScheme.onSurface
+                          .withValues(alpha: 0.6),
                 onPressed: () {
                   setState(() {
                     _emojiShowing = false;
@@ -427,10 +442,7 @@ class _IconColorPickerSectionState extends State<IconColorPickerSection> {
           color: MaterialThemeInstance.currentTheme?.colorScheme.onSurface,
         ),
       ),
-      children: [
-        Divider(thickness: 0.5),
-        content,
-      ],
+      children: [Divider(thickness: 0.5), content],
     );
   }
 

@@ -152,9 +152,13 @@ class EditCategoryPageState extends State<EditCategoryPage> {
   }
 
   Widget _getAppBar() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AppBar(
-      backgroundColor: const Color(0xFFFFD400),
-      foregroundColor: const Color(0xFF252525),
+      backgroundColor: isDark
+          ? colorScheme.surfaceContainer
+          : const Color(0xFFFFD400),
+      foregroundColor: isDark ? colorScheme.onSurface : const Color(0xFF252525),
       title: Text(_isSystemCategory ? '系统分类' : "Edit category".i18n),
       actions: <Widget>[
         Visibility(

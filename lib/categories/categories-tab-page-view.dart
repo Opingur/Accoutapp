@@ -73,6 +73,17 @@ class CategoryTabPageViewState extends State<CategoryTabPageView> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final headerColor = isDark
+        ? colorScheme.surfaceContainer
+        : const Color(0xFFFFD400);
+    final headerForeground = isDark
+        ? colorScheme.onSurface
+        : const Color(0xFF252525);
+    final headerMuted = isDark
+        ? colorScheme.onSurface.withValues(alpha: .6)
+        : const Color(0xFF5F5424);
     final showTransferTab =
         widget.goToEditMovementPage == true && ServiceConfig.walletsEnabled;
     final tabCount = showTransferTab ? 3 : 2;
@@ -84,17 +95,17 @@ class CategoryTabPageViewState extends State<CategoryTabPageView> {
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          backgroundColor: const Color(0xFFFFD400),
-          foregroundColor: const Color(0xFF252525),
+          backgroundColor: headerColor,
+          foregroundColor: headerForeground,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           toolbarHeight: 62,
           titleSpacing: 10,
           title: TabBar(
-            indicatorColor: const Color(0xFF252525),
+            indicatorColor: headerForeground,
             indicatorWeight: 3,
-            labelColor: const Color(0xFF252525),
-            unselectedLabelColor: const Color(0xFF5F5424),
+            labelColor: headerForeground,
+            unselectedLabelColor: headerMuted,
             labelStyle: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -109,7 +120,7 @@ class CategoryTabPageViewState extends State<CategoryTabPageView> {
             TextButton(
               onPressed: () => Navigator.pop(context),
               style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF252525),
+                foregroundColor: headerForeground,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
               child: const Text('取消', style: TextStyle(fontSize: 16)),

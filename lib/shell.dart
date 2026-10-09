@@ -33,6 +33,14 @@ class ShellState extends State<Shell> {
   static ShellState? get instance => _instance;
 
   int _currentIndex = 0;
+  // Root tabs other than records are created on their first visit.  Offstage
+  // alone only hides a widget: it still mounts the page and starts its data
+  // loading work during the first home-screen frame.  Keeping visited tabs
+  // alive preserves their navigation state without making startup pay for
+  // statistics, discovery and settings up front.
+  bool _statisticsInitialized = false;
+  bool _discoverInitialized = false;
+  bool _settingsInitialized = false;
   final LocalAuthentication auth = LocalAuthentication();
   Future<bool>? authFuture = null;
 
@@ -161,16 +169,31 @@ class ShellState extends State<Shell> {
   }
 
   void _showStatistics() {
-    if (_currentIndex != 1) setState(() => _currentIndex = 1);
+    if (_currentIndex != 1 || !_statisticsInitialized) {
+      setState(() {
+        _statisticsInitialized = true;
+        _currentIndex = 1;
+      });
+    }
     _statisticsKey.currentState?.refresh();
   }
 
   void _showSettings() {
-    if (_currentIndex != 3) setState(() => _currentIndex = 3);
+    if (_currentIndex != 3 || !_settingsInitialized) {
+      setState(() {
+        _settingsInitialized = true;
+        _currentIndex = 3;
+      });
+    }
   }
 
   void _showDiscover() {
-    if (_currentIndex != 2) setState(() => _currentIndex = 2);
+    if (_currentIndex != 2 || !_discoverInitialized) {
+      setState(() {
+        _discoverInitialized = true;
+        _currentIndex = 2;
+      });
+    }
   }
 
   @override
@@ -222,145 +245,164 @@ class ShellState extends State<Shell> {
   Widget _buildMainUI(BuildContext context) {
     ThemeData themeData = Theme.of(context);
     MaterialThemeInstance.currentTheme = themeData;
+    final isDark = themeData.brightness == Brightness.dark;
+    final systemOverlayStyle =
+        (isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+            .copyWith(
+              statusBarColor: isDark
+                  ? themeData.colorScheme.surface
+                  : const Color(0xFFFFD21F),
+              systemNavigationBarColor: themeData.colorScheme.surface,
+              systemNavigationBarDividerColor:
+                  themeData.colorScheme.outlineVariant,
+            );
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (bool didPop, dynamic result) async {
-        if (didPop) {
-          return;
-        }
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: systemOverlayStyle,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (bool didPop, dynamic result) async {
+          if (didPop) {
+            return;
+          }
 
-        // Get the current tab's navigator
-        NavigatorState? currentNavigator;
-        switch (_currentIndex) {
-          case 0:
-            currentNavigator = _homeNavigatorKey.currentState;
-            break;
-          case 1:
-            currentNavigator = _statisticsNavigatorKey.currentState;
-            break;
-          case 2:
-            currentNavigator = _discoverNavigatorKey.currentState;
-            break;
-          case 3:
-            currentNavigator = _settingsNavigatorKey.currentState;
-            break;
-        }
+          // Get the current tab's navigator
+          NavigatorState? currentNavigator;
+          switch (_currentIndex) {
+            case 0:
+              currentNavigator = _homeNavigatorKey.currentState;
+              break;
+            case 1:
+              currentNavigator = _statisticsNavigatorKey.currentState;
+              break;
+            case 2:
+              currentNavigator = _discoverNavigatorKey.currentState;
+              break;
+            case 3:
+              currentNavigator = _settingsNavigatorKey.currentState;
+              break;
+          }
 
-        // Check if the current tab's navigator can pop.
-        // Use maybePop so inner PopScopes (e.g., in-app keyboard) can intercept first.
-        if (currentNavigator != null && currentNavigator.canPop()) {
-          await currentNavigator.maybePop();
-          return;
-        }
+          // Check if the current tab's navigator can pop.
+          // Use maybePop so inner PopScopes (e.g., in-app keyboard) can intercept first.
+          if (currentNavigator != null && currentNavigator.canPop()) {
+            await currentNavigator.maybePop();
+            return;
+          }
 
-        // At the root of the current tab's navigator.
-        // Use maybePop to respect inner PopScopes (e.g., select mode in records).
-        if (currentNavigator != null) {
-          final bool handled = await currentNavigator.maybePop();
-          if (handled) return;
-        }
+          // At the root of the current tab's navigator.
+          // Use maybePop to respect inner PopScopes (e.g., select mode in records).
+          if (currentNavigator != null) {
+            final bool handled = await currentNavigator.maybePop();
+            if (handled) return;
+          }
 
-        if (_currentIndex != 0) {
-          // If we're at the root of a non-Home tab, navigate to Home
-          setState(() {
-            _currentIndex = 0;
-          });
-        } else {
-          // We're at the root of Home tab - exit the app
-          SystemNavigator.pop();
-        }
-      },
-      child: Scaffold(
-        body: SafeArea(
-          // In landscape the system navigation bar (3-button mode) sits on the
-          // side of the screen. Pad horizontally so body content never extends
-          // behind it. The top inset is handled by each page's app bar and the
-          // bottom inset by the NavigationBar below.
-          top: false,
-          bottom: false,
-          child: Stack(
-            children: <Widget>[
-              Offstage(
-                offstage: _currentIndex != 0,
-                child: TickerMode(
-                  enabled: _currentIndex == 0,
-                  child: Navigator(
-                    key: _homeNavigatorKey,
-                    onGenerateRoute: (settings) {
-                      return MaterialPageRoute(
-                        builder: (_) => TabRecords(
-                          key: _tabRecordsKey,
-                          onStatisticsRequested: _showStatistics,
-                        ),
-                      );
-                    },
+          if (_currentIndex != 0) {
+            // If we're at the root of a non-Home tab, navigate to Home
+            setState(() {
+              _currentIndex = 0;
+            });
+          } else {
+            // We're at the root of Home tab - exit the app
+            SystemNavigator.pop();
+          }
+        },
+        child: Scaffold(
+          body: SafeArea(
+            // In landscape the system navigation bar (3-button mode) sits on the
+            // side of the screen. Pad horizontally so body content never extends
+            // behind it. The top inset is handled by each page's app bar and the
+            // bottom inset by the NavigationBar below.
+            top: false,
+            bottom: false,
+            child: Stack(
+              children: <Widget>[
+                Offstage(
+                  offstage: _currentIndex != 0,
+                  child: TickerMode(
+                    enabled: _currentIndex == 0,
+                    child: Navigator(
+                      key: _homeNavigatorKey,
+                      onGenerateRoute: (settings) {
+                        return MaterialPageRoute(
+                          builder: (_) => TabRecords(
+                            key: _tabRecordsKey,
+                            onStatisticsRequested: _showStatistics,
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
-              Offstage(
-                offstage: _currentIndex != 1,
-                child: TickerMode(
-                  enabled: _currentIndex == 1,
-                  child: Navigator(
-                    key: _statisticsNavigatorKey,
-                    onGenerateRoute: (settings) {
-                      return MaterialPageRoute(
-                        builder: (_) => StatisticsPage(
-                          null,
-                          null,
-                          null,
-                          key: _statisticsKey,
-                        ),
-                      );
-                    },
+                if (_statisticsInitialized)
+                  Offstage(
+                    offstage: _currentIndex != 1,
+                    child: TickerMode(
+                      enabled: _currentIndex == 1,
+                      child: Navigator(
+                        key: _statisticsNavigatorKey,
+                        onGenerateRoute: (settings) {
+                          return MaterialPageRoute(
+                            builder: (_) => StatisticsPage(
+                              null,
+                              null,
+                              null,
+                              key: _statisticsKey,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              Offstage(
-                offstage: _currentIndex != 2,
-                child: TickerMode(
-                  enabled: _currentIndex == 2,
-                  child: Navigator(
-                    key: _discoverNavigatorKey,
-                    onGenerateRoute: (settings) {
-                      return MaterialPageRoute(
-                        builder: (_) => const _DiscoverRoot(),
-                      );
-                    },
+                if (_discoverInitialized)
+                  Offstage(
+                    offstage: _currentIndex != 2,
+                    child: TickerMode(
+                      enabled: _currentIndex == 2,
+                      child: Navigator(
+                        key: _discoverNavigatorKey,
+                        onGenerateRoute: (settings) {
+                          return MaterialPageRoute(
+                            builder: (_) => const _DiscoverRoot(),
+                          );
+                        },
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              Offstage(
-                offstage: _currentIndex != 3,
-                child: TickerMode(
-                  enabled: _currentIndex == 3,
-                  child: Navigator(
-                    key: _settingsNavigatorKey,
-                    onGenerateRoute: (settings) {
-                      return MaterialPageRoute(builder: (_) => TabSettings());
-                    },
+                if (_settingsInitialized)
+                  Offstage(
+                    offstage: _currentIndex != 3,
+                    child: TickerMode(
+                      enabled: _currentIndex == 3,
+                      child: Navigator(
+                        key: _settingsNavigatorKey,
+                        onGenerateRoute: (settings) {
+                          return MaterialPageRoute(
+                            builder: (_) => TabSettings(),
+                          );
+                        },
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        bottomNavigationBar: ValueListenableBuilder<bool>(
-          valueListenable: inAppKeyboardOpen,
-          builder: (context, isOpen, _) => AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOut,
-            child: isOpen
-                ? SizedBox(height: MediaQuery.paddingOf(context).bottom)
-                : _HomeBottomBar(
-                    selectedIndex: _currentIndex,
-                    onRecordsPressed: _showRecords,
-                    onAddPressed: _openPrimaryAddFlow,
-                    onStatisticsPressed: _showStatistics,
-                    onDiscoverPressed: _showDiscover,
-                    onProfilePressed: _showSettings,
-                  ),
+          bottomNavigationBar: ValueListenableBuilder<bool>(
+            valueListenable: inAppKeyboardOpen,
+            builder: (context, isOpen, _) => AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+              child: isOpen
+                  ? SizedBox(height: MediaQuery.paddingOf(context).bottom)
+                  : _HomeBottomBar(
+                      selectedIndex: _currentIndex,
+                      onRecordsPressed: _showRecords,
+                      onAddPressed: _openPrimaryAddFlow,
+                      onStatisticsPressed: _showStatistics,
+                      onDiscoverPressed: _showDiscover,
+                      onProfilePressed: _showSettings,
+                    ),
+            ),
           ),
         ),
       ),
@@ -372,12 +414,14 @@ class _DiscoverRoot extends StatelessWidget {
   const _DiscoverRoot();
 
   @override
-  Widget build(BuildContext context) => const Scaffold(
-    backgroundColor: Colors.white,
+  Widget build(BuildContext context) => Scaffold(
     body: Center(
       child: Text(
         '发现功能即将推出',
-        style: TextStyle(fontSize: 15, color: Color(0xFF666666)),
+        style: TextStyle(
+          fontSize: 15,
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .65),
+        ),
       ),
     ),
   );
@@ -404,15 +448,16 @@ class _HomeBottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     const yellow = Color(0xFFFFD21F);
     const ink = Color(0xFF242424);
+    final colorScheme = Theme.of(context).colorScheme;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return Material(
-      color: Colors.white,
+      color: colorScheme.surface,
       elevation: 0,
       child: SizedBox(
         height: HomeCompactMetrics.bottomBarHeight + bottomInset,
         child: DecoratedBox(
-          decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: Color(0xFFEFEFEF))),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
           ),
           child: Padding(
             padding: EdgeInsets.fromLTRB(12, 4, 12, 0 + bottomInset),
@@ -492,7 +537,10 @@ class _PrimaryBottomAction extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: color,
-                border: Border.all(color: Colors.white, width: 4),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.surface,
+                  width: 4,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.14),
@@ -509,12 +557,12 @@ class _PrimaryBottomAction extends StatelessWidget {
             ),
           ),
         ),
-        const Positioned(
+        Positioned(
           bottom: 0,
           child: Text(
             '记账',
             style: TextStyle(
-              color: Color(0xFF242424),
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: HomeCompactMetrics.bottomLabel,
               fontWeight: FontWeight.w700,
             ),
@@ -540,8 +588,10 @@ class _BottomAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const ink = Color(0xFF242424);
-    final color = selected ? ink : const Color(0xFF8C8C8C);
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = selected
+        ? colorScheme.onSurface
+        : colorScheme.onSurface.withValues(alpha: .55);
     return InkResponse(
       onTap: onTap,
       radius: 26,

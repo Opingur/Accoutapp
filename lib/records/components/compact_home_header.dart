@@ -42,12 +42,14 @@ class CompactHomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const ink = Color(0xFF202020);
-    const yellow = Color(0xFFFFD21F);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final yellow = isDark ? const Color(0xFF6A5512) : const Color(0xFFFFD21F);
+    final ink = isDark ? const Color(0xFFF2F2F2) : const Color(0xFF202020);
+    final mutedInk = isDark ? const Color(0xFFFFE7A0) : const Color(0xFF6C5926);
     return ValueListenableBuilder<bool>(
       valueListenable: ServiceConfig.privacyModeHiddenNotifier,
       builder: (context, hidden, _) {
-        const amountStyle = TextStyle(
+        final amountStyle = TextStyle(
           color: ink,
           fontSize: HomeCompactMetrics.overviewAmount,
           fontWeight: FontWeight.w700,
@@ -71,9 +73,11 @@ class CompactHomeHeader extends StatelessWidget {
                         child: InkResponse(
                           onTap: onProfileTap,
                           radius: 20,
-                          child: const CircleAvatar(
+                          child: CircleAvatar(
                             radius: 14,
-                            backgroundColor: Color(0x33FFFFFF),
+                            backgroundColor: isDark
+                                ? const Color(0x22FFFFFF)
+                                : const Color(0x33FFFFFF),
                             child: Icon(
                               Icons.person_outline,
                               color: ink,
@@ -82,7 +86,7 @@ class CompactHomeHeader extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const Expanded(
+                      Expanded(
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(
@@ -108,19 +112,26 @@ class CompactHomeHeader extends StatelessWidget {
                     children: [
                       Expanded(
                         flex: 30,
-                        child: _MonthColumn(month: month, onTap: onMonthTap),
+                        child: _MonthColumn(
+                          month: month,
+                          onTap: onMonthTap,
+                          ink: ink,
+                          mutedInk: mutedInk,
+                        ),
                       ),
                       _TotalColumn(
                         label: '收入',
                         value: _total(_income),
                         hidden: hidden,
                         style: amountStyle,
+                        labelColor: mutedInk,
                       ),
                       _TotalColumn(
                         label: '支出',
                         value: _total(_expenses),
                         hidden: hidden,
                         style: amountStyle,
+                        labelColor: mutedInk,
                       ),
                     ],
                   ),
@@ -135,10 +146,17 @@ class CompactHomeHeader extends StatelessWidget {
 }
 
 class _MonthColumn extends StatelessWidget {
-  const _MonthColumn({required this.month, required this.onTap});
+  const _MonthColumn({
+    required this.month,
+    required this.onTap,
+    required this.ink,
+    required this.mutedInk,
+  });
 
   final DateTime month;
   final VoidCallback onTap;
+  final Color ink;
+  final Color mutedInk;
 
   @override
   Widget build(BuildContext context) => InkWell(
@@ -153,8 +171,8 @@ class _MonthColumn extends StatelessWidget {
             '${month.year}年',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF6C5926),
+            style: TextStyle(
+              color: mutedInk,
               fontSize: HomeCompactMetrics.monthYear,
               fontWeight: FontWeight.w500,
             ),
@@ -171,18 +189,14 @@ class _MonthColumn extends StatelessWidget {
                     '${month.month}月',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF202020),
+                    style: TextStyle(
+                      color: ink,
                       fontSize: HomeCompactMetrics.monthValue,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.7,
                     ),
                   ),
-                  const Icon(
-                    Icons.arrow_drop_down_rounded,
-                    color: Color(0xFF202020),
-                    size: 20,
-                  ),
+                  Icon(Icons.arrow_drop_down_rounded, color: ink, size: 20),
                 ],
               ),
             ),
@@ -199,12 +213,14 @@ class _TotalColumn extends StatelessWidget {
     required this.value,
     required this.hidden,
     required this.style,
+    required this.labelColor,
   });
 
   final String label;
   final String value;
   final bool hidden;
   final TextStyle style;
+  final Color labelColor;
 
   @override
   Widget build(BuildContext context) => Expanded(
@@ -216,8 +232,8 @@ class _TotalColumn extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF6C5926),
+          style: TextStyle(
+            color: labelColor,
             fontSize: HomeCompactMetrics.overviewLabel,
             fontWeight: FontWeight.w500,
           ),

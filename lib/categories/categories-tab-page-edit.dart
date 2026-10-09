@@ -63,22 +63,33 @@ class TabCategoriesState extends State<TabCategories>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final headerColor = isDark
+        ? colorScheme.surfaceContainer
+        : const Color(0xFFFFD400);
+    final headerForeground = isDark
+        ? colorScheme.onSurface
+        : const Color(0xFF252525);
+    final headerMuted = isDark
+        ? colorScheme.onSurface.withValues(alpha: .6)
+        : const Color(0xFF5F5424);
     final selectedType = _tabController.index == 0
         ? CategoryType.expense
         : CategoryType.income;
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFFFFD400),
-        foregroundColor: const Color(0xFF252525),
+        backgroundColor: headerColor,
+        foregroundColor: headerForeground,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         title: Text(showArchived ? '已归档分类' : '分类管理'),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: const Color(0xFF252525),
+          indicatorColor: headerForeground,
           indicatorWeight: 3,
-          labelColor: const Color(0xFF252525),
-          unselectedLabelColor: const Color(0xFF5F5424),
+          labelColor: headerForeground,
+          unselectedLabelColor: headerMuted,
           tabs: const [
             Tab(text: '支出'),
             Tab(text: '收入'),
@@ -113,7 +124,9 @@ class TabCategoriesState extends State<TabCategories>
           ? null
           : FloatingActionButton.extended(
               heroTag: null,
-              backgroundColor: const Color(0xFFFFD400),
+              backgroundColor: isDark
+                  ? colorScheme.primary
+                  : const Color(0xFFFFD400),
               foregroundColor: const Color(0xFF252525),
               onPressed: () => _addCategory(selectedType),
               icon: const Icon(Icons.add),

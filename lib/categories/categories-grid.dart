@@ -36,8 +36,8 @@ class CategoriesGrid extends StatelessWidget {
   }
 
   Widget _categoryTile(BuildContext context, Category category) {
-    final iconColor = Theme.of(context).colorScheme.onSurface
-        .withValues(alpha: .75);
+    final colorScheme = Theme.of(context).colorScheme;
+    final iconColor = colorScheme.onSurface.withValues(alpha: .75);
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () => _selectCategory(context, category),
@@ -49,8 +49,8 @@ class CategoriesGrid extends StatelessWidget {
             Container(
               width: 44,
               height: 44,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF3F3F3),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainer,
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,

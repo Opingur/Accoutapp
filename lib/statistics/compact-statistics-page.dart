@@ -30,7 +30,6 @@ enum _CategoryAnalysisMode { ranking, pie }
 
 class _CompactStatisticsPageState extends State<CompactStatisticsPage> {
   static const _yellow = Color(0xFFFFD21F);
-  static const _ink = Color(0xFF282828);
 
   late _StatisticsPeriod _period;
   late CategoryType _categoryType;
@@ -249,13 +248,12 @@ class _CompactStatisticsPageState extends State<CompactStatisticsPage> {
     final ranking = _ranking;
     final pieEntries = buildPieAnalysisEntries(ranking);
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            _buildYellowHeader(),
-            _buildPeriodStrip(),
+            _buildYellowHeader(context),
+            _buildPeriodStrip(context),
             Expanded(
               child: GestureDetector(
                 onHorizontalDragEnd: (details) {
@@ -291,16 +289,17 @@ class _CompactStatisticsPageState extends State<CompactStatisticsPage> {
                         ),
                       ),
                     ),
-                    const Divider(height: 1, color: Color(0xFFECECEC)),
-                    _buildAnalysisHeader(),
+                    const Divider(height: 1),
+                    _buildAnalysisHeader(context),
                     if (ranking.isEmpty)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.fromLTRB(18, 24, 18, 42),
                         child: Text(
                           '当前周期暂无账单',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Color(0xFF9A9A9A),
+                            color: Theme.of(context).colorScheme.onSurface
+                                .withValues(alpha: .58),
                             fontSize: 14,
                           ),
                         ),
@@ -333,92 +332,100 @@ class _CompactStatisticsPageState extends State<CompactStatisticsPage> {
     );
   }
 
-  Widget _buildYellowHeader() => Container(
-    color: _yellow,
-    padding: const EdgeInsets.fromLTRB(16, 7, 16, 8),
-    child: Column(
-      children: [
-        PopupMenuButton<CategoryType>(
-          initialValue: _categoryType,
-          onSelected: (value) => setState(() => _categoryType = value),
-          color: Colors.white,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 100, minHeight: 26),
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: CategoryType.expense, child: Text('支出')),
-            PopupMenuItem(value: CategoryType.income, child: Text('收入')),
-          ],
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _categoryType == CategoryType.expense ? '支出' : '收入',
-                style: const TextStyle(
-                  color: _ink,
-                  fontSize: 21,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 3),
-              const Icon(Icons.arrow_drop_down, color: _ink, size: 22),
+  Widget _buildYellowHeader(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final headerColor = isDark ? colorScheme.surfaceContainer : _yellow;
+    final ink = isDark ? colorScheme.onSurface : const Color(0xFF282828);
+    final selectedSegmentColor = isDark ? const Color(0xFF151515) : ink;
+    final selectedSegmentTextColor = isDark ? colorScheme.primary : headerColor;
+    return Container(
+      color: headerColor,
+      padding: const EdgeInsets.fromLTRB(16, 7, 16, 8),
+      child: Column(
+        children: [
+          PopupMenuButton<CategoryType>(
+            initialValue: _categoryType,
+            onSelected: (value) => setState(() => _categoryType = value),
+            color: colorScheme.surfaceContainer,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 100, minHeight: 26),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: CategoryType.expense, child: Text('支出')),
+              PopupMenuItem(value: CategoryType.income, child: Text('收入')),
             ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _categoryType == CategoryType.expense ? '支出' : '收入',
+                  style: TextStyle(
+                    color: ink,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 3),
+                Icon(Icons.arrow_drop_down, color: ink, size: 22),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          height: 32,
-          decoration: BoxDecoration(
-            border: Border.all(color: _ink, width: 1.2),
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: Row(
-            children: _StatisticsPeriod.values.map((period) {
-              final selected = _period == period;
-              final label = switch (period) {
-                _StatisticsPeriod.week => '周',
-                _StatisticsPeriod.month => '月',
-                _StatisticsPeriod.year => '年',
-              };
-              return Expanded(
-                child: InkWell(
-                  onTap: () => _changePeriod(period),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: selected ? _ink : Colors.transparent,
-                      border: period == _StatisticsPeriod.year
-                          ? null
-                          : const Border(
-                              right: BorderSide(color: _ink, width: 1),
-                            ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: selected ? _yellow : _ink,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+          const SizedBox(height: 6),
+          Container(
+            height: 32,
+            decoration: BoxDecoration(
+              border: Border.all(color: ink, width: 1.2),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: Row(
+              children: _StatisticsPeriod.values.map((period) {
+                final selected = _period == period;
+                final label = switch (period) {
+                  _StatisticsPeriod.week => '周',
+                  _StatisticsPeriod.month => '月',
+                  _StatisticsPeriod.year => '年',
+                };
+                return Expanded(
+                  child: InkWell(
+                    onTap: () => _changePeriod(period),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? selectedSegmentColor
+                            : Colors.transparent,
+                        border: period == _StatisticsPeriod.year
+                            ? null
+                            : Border(right: BorderSide(color: ink, width: 1)),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          color: selected ? selectedSegmentTextColor : ink,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            }).toList(),
+                );
+              }).toList(),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 
-  Widget _buildAnalysisHeader() => Padding(
+  Widget _buildAnalysisHeader(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
     child: Row(
       children: [
         Expanded(
           child: Text(
             _categoryType == CategoryType.expense ? '支出排行榜' : '收入排行榜',
-            style: const TextStyle(
-              color: _ink,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
@@ -432,47 +439,52 @@ class _CompactStatisticsPageState extends State<CompactStatisticsPage> {
     ),
   );
 
-  Widget _buildPeriodStrip() => Container(
-    height: 42,
-    decoration: const BoxDecoration(
-      color: Colors.white,
-      border: Border(bottom: BorderSide(color: Color(0xFFE8E8E8))),
-    ),
-    child: Row(
-      children: _periodOptions.map((option) {
-        final selected = option == _selectedStart;
-        return Expanded(
-          child: InkWell(
-            onTap: () => setState(() => _selectedStart = option),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Text(
-                  _periodOptionLabel(option),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: selected ? _ink : const Color(0xFFB9B9B9),
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                  ),
-                ),
-                if (selected)
-                  const Positioned(
-                    bottom: 0,
-                    child: SizedBox(
-                      height: 3,
-                      width: 30,
-                      child: ColoredBox(color: Colors.black),
+  Widget _buildPeriodStrip(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      height: 42,
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+      ),
+      child: Row(
+        children: _periodOptions.map((option) {
+          final selected = option == _selectedStart;
+          return Expanded(
+            child: InkWell(
+              onTap: () => setState(() => _selectedStart = option),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Text(
+                    _periodOptionLabel(option),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: selected
+                          ? colorScheme.onSurface
+                          : colorScheme.onSurface.withValues(alpha: .45),
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                     ),
                   ),
-              ],
+                  if (selected)
+                    Positioned(
+                      bottom: 0,
+                      child: SizedBox(
+                        height: 3,
+                        width: 30,
+                        child: ColoredBox(color: colorScheme.onSurface),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        );
-      }).toList(),
-    ),
-  );
+          );
+        }).toList(),
+      ),
+    );
+  }
 }
 
 class _StatisticsTotals extends StatelessWidget {
@@ -487,20 +499,29 @@ class _StatisticsTotals extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        '$label：$total',
-        style: const TextStyle(color: Color(0xFF757575), fontSize: 16),
-      ),
-      const SizedBox(height: 3),
-      Text(
-        '平均值：$average',
-        style: const TextStyle(color: Color(0xFF858585), fontSize: 13),
-      ),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$label：$total',
+          style: TextStyle(
+            color: onSurface.withValues(alpha: .68),
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          '平均值：$average',
+          style: TextStyle(
+            color: onSurface.withValues(alpha: .58),
+            fontSize: 13,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _TrendPoint {
@@ -529,6 +550,12 @@ class _TrendChart extends StatelessWidget {
         points: points,
         period: period,
         maxText: maxText,
+        lineColor: Theme.of(context).colorScheme.onSurface
+            .withValues(alpha: .58),
+        guideColor: Theme.of(context).colorScheme.outlineVariant,
+        emptyPointColor: Theme.of(context).colorScheme.surface,
+        textColor: Theme.of(context).colorScheme.onSurface
+            .withValues(alpha: .58),
       ),
       size: Size.infinite,
     ),
@@ -540,14 +567,19 @@ class _TrendChartPainter extends CustomPainter {
     required this.points,
     required this.period,
     required this.maxText,
+    required this.lineColor,
+    required this.guideColor,
+    required this.emptyPointColor,
+    required this.textColor,
   });
 
   final List<_TrendPoint> points;
   final _StatisticsPeriod period;
   final String maxText;
-
-  static const _line = Color(0xFF717171);
-  static const _guide = Color(0xFFD8D8D8);
+  final Color lineColor;
+  final Color guideColor;
+  final Color emptyPointColor;
+  final Color textColor;
   static const _yellow = Color(0xFFFFD21F);
 
   @override
@@ -573,7 +605,7 @@ class _TrendChartPainter extends CustomPainter {
     }
 
     final gridPaint = Paint()
-      ..color = _line.withValues(alpha: 0.55)
+      ..color = lineColor.withValues(alpha: 0.55)
       ..strokeWidth = 0.7;
     canvas.drawLine(
       Offset(left, top),
@@ -585,7 +617,7 @@ class _TrendChartPainter extends CustomPainter {
       Offset(left, top + chartHeight / 2),
       Offset(size.width - right, top + chartHeight / 2),
       Paint()
-        ..color = _guide
+        ..color = guideColor
         ..strokeWidth = 0.8,
     );
     canvas.drawLine(
@@ -602,7 +634,7 @@ class _TrendChartPainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = _line
+        ..color = lineColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.85,
     );
@@ -612,14 +644,14 @@ class _TrendChartPainter extends CustomPainter {
         pointsOnCanvas[index],
         3.5,
         Paint()
-          ..color = value > 0 ? _yellow : Colors.white
+          ..color = value > 0 ? _yellow : emptyPointColor
           ..style = PaintingStyle.fill,
       );
       canvas.drawCircle(
         pointsOnCanvas[index],
         3.5,
         Paint()
-          ..color = _line
+          ..color = lineColor
           ..style = PaintingStyle.stroke
           ..strokeWidth = 0.85,
       );
@@ -628,7 +660,7 @@ class _TrendChartPainter extends CustomPainter {
       canvas,
       maxText,
       Offset(size.width - right, 2),
-      const TextStyle(color: Color(0xFF717171), fontSize: 12),
+      TextStyle(color: textColor, fontSize: 12),
       alignRight: true,
     );
     for (final index in _labelIndexes()) {
@@ -636,7 +668,7 @@ class _TrendChartPainter extends CustomPainter {
         canvas,
         _labelFor(points[index].date),
         Offset(pointsOnCanvas[index].dx, baseline + 6),
-        const TextStyle(color: Color(0xFF717171), fontSize: 10),
+        TextStyle(color: textColor, fontSize: 10),
         centered: true,
       );
     }
@@ -706,7 +738,11 @@ class _TrendChartPainter extends CustomPainter {
   bool shouldRepaint(covariant _TrendChartPainter oldDelegate) =>
       oldDelegate.points != points ||
       oldDelegate.period != period ||
-      oldDelegate.maxText != maxText;
+      oldDelegate.maxText != maxText ||
+      oldDelegate.lineColor != lineColor ||
+      oldDelegate.guideColor != guideColor ||
+      oldDelegate.emptyPointColor != emptyPointColor ||
+      oldDelegate.textColor != textColor;
 }
 
 class _RankingRow extends StatelessWidget {
@@ -725,6 +761,7 @@ class _RankingRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final percent = total == 0 ? 0.0 : item.amount / total * 100;
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
       child: Row(
@@ -733,13 +770,13 @@ class _RankingRow extends StatelessWidget {
           Container(
             width: 34,
             height: 34,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF3F3F3),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainer,
               shape: BoxShape.circle,
             ),
             child: Icon(
               item.category?.icon ?? Icons.category_outlined,
-              color: const Color(0xFF4A4A4A),
+              color: colorScheme.onSurface.withValues(alpha: .75),
               size: 16,
             ),
           ),
@@ -755,8 +792,8 @@ class _RankingRow extends StatelessWidget {
                         item.displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF383838),
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
@@ -765,8 +802,8 @@ class _RankingRow extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       '${percent.toStringAsFixed(1)}%',
-                      style: const TextStyle(
-                        color: Color(0xFF6D6D6D),
+                      style: TextStyle(
+                        color: colorScheme.onSurface.withValues(alpha: .62),
                         fontSize: 12,
                       ),
                     ),
@@ -800,7 +837,10 @@ class _RankingRow extends StatelessWidget {
               textAlign: TextAlign.right,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Color(0xFF4D4D4D), fontSize: 13),
+              style: TextStyle(
+                color: colorScheme.onSurface.withValues(alpha: .82),
+                fontSize: 13,
+              ),
             ),
           ),
         ],
@@ -816,23 +856,31 @@ class _AnalysisModeToggle extends StatelessWidget {
   final ValueChanged<_CategoryAnalysisMode> onChanged;
 
   @override
-  Widget build(BuildContext context) => Container(
-    height: 28,
-    decoration: BoxDecoration(
-      border: Border.all(color: const Color(0xFF444444), width: .8),
-      borderRadius: BorderRadius.circular(4),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _segment('排行榜', _CategoryAnalysisMode.ranking),
-        _segment('饼图', _CategoryAnalysisMode.pie),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      height: 28,
+      decoration: BoxDecoration(
+        border: Border.all(color: colorScheme.outline, width: .8),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _segment(context, '排行榜', _CategoryAnalysisMode.ranking),
+          _segment(context, '饼图', _CategoryAnalysisMode.pie),
+        ],
+      ),
+    );
+  }
 
-  Widget _segment(String label, _CategoryAnalysisMode mode) {
+  Widget _segment(
+    BuildContext context,
+    String label,
+    _CategoryAnalysisMode mode,
+  ) {
     final isSelected = selected == mode;
+    final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
       key: ValueKey('statistics-analysis-${mode.name}'),
       onTap: () => onChanged(mode),
@@ -840,19 +888,19 @@ class _AnalysisModeToggle extends StatelessWidget {
         width: 48,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF282828) : Colors.transparent,
+          color: isSelected
+              ? colorScheme.surfaceContainerHighest
+              : Colors.transparent,
           border: mode == _CategoryAnalysisMode.ranking
-              ? const Border(
-                  right: BorderSide(color: Color(0xFF444444), width: .8),
-                )
+              ? Border(right: BorderSide(color: colorScheme.outline, width: .8))
               : null,
         ),
         child: Text(
           label,
           style: TextStyle(
             color: isSelected
-                ? const Color(0xFFFFD21F)
-                : const Color(0xFF444444),
+                ? colorScheme.primary
+                : colorScheme.onSurface.withValues(alpha: .75),
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
@@ -876,56 +924,59 @@ class _PieAnalysis extends StatelessWidget {
   final String Function(double) formatAmount;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 4, 16, 22),
-    child: Column(
-      children: [
-        SizedBox(
-          height: 188,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 172,
-                height: 172,
-                child: CustomPaint(painter: _DonutChartPainter(entries)),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    typeLabel,
-                    style: const TextStyle(
-                      color: Color(0xFF777777),
-                      fontSize: 12,
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 22),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 188,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 172,
+                  height: 172,
+                  child: CustomPaint(painter: _DonutChartPainter(entries)),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      typeLabel,
+                      style: TextStyle(
+                        color: colorScheme.onSurface.withValues(alpha: .58),
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    formatAmount(total),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF303030),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                    const SizedBox(height: 2),
+                    Text(
+                      formatAmount(total),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-        ...entries.map(
-          (entry) => _PieLegendRow(
-            entry: entry,
-            total: total,
-            formatAmount: formatAmount,
+          ...entries.map(
+            (entry) => _PieLegendRow(
+              entry: entry,
+              total: total,
+              formatAmount: formatAmount,
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _PieLegendRow extends StatelessWidget {
@@ -942,6 +993,7 @@ class _PieLegendRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final percent = total == 0 ? 0.0 : entry.amount / total * 100;
+    final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
       height: 30,
       child: Row(
@@ -960,7 +1012,7 @@ class _PieLegendRow extends StatelessWidget {
               entry.displayName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Color(0xFF3D3D3D), fontSize: 13),
+              style: TextStyle(color: colorScheme.onSurface, fontSize: 13),
             ),
           ),
           const SizedBox(width: 8),
@@ -969,7 +1021,10 @@ class _PieLegendRow extends StatelessWidget {
             child: Text(
               '${percent.toStringAsFixed(1)}%',
               textAlign: TextAlign.right,
-              style: const TextStyle(color: Color(0xFF777777), fontSize: 12),
+              style: TextStyle(
+                color: colorScheme.onSurface.withValues(alpha: .58),
+                fontSize: 12,
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -980,7 +1035,7 @@ class _PieLegendRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.right,
-              style: const TextStyle(color: Color(0xFF3D3D3D), fontSize: 13),
+              style: TextStyle(color: colorScheme.onSurface, fontSize: 13),
             ),
           ),
         ],

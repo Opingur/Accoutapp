@@ -55,11 +55,6 @@ class RecordsPerDayCard extends StatefulWidget {
 
 class _RecordsPerDayCardState extends State<RecordsPerDayCard>
     with AutomaticKeepAliveClientMixin {
-  final _titleFontStyle = const TextStyle(
-    fontSize: HomeCompactMetrics.recordTitle,
-    fontWeight: FontWeight.w700,
-    color: Color(0xFF282828),
-  );
   final _currencyFontStyle = const TextStyle(
     fontSize: HomeCompactMetrics.recordAmount,
     fontWeight: FontWeight.w700,
@@ -271,6 +266,11 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
         movement.id != null &&
         widget.selectedRecordIds.contains(movement.id);
     final canSelect = !movement.isFutureRecord && movement.id != null;
+    final titleStyle = TextStyle(
+      fontSize: HomeCompactMetrics.recordTitle,
+      fontWeight: FontWeight.w700,
+      color: Theme.of(context).colorScheme.onSurface,
+    );
 
     final listTile = ListTile(
       dense: true,
@@ -311,7 +311,7 @@ class _RecordsPerDayCardState extends State<RecordsPerDayCard>
         children: [
           Text(
             _displayRecordTitle(movement),
-            style: _titleFontStyle,
+            style: titleStyle,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -494,8 +494,15 @@ class _DailyTotals extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurface
-        .withValues(alpha: 0.56);
+    final colorScheme = Theme.of(context).colorScheme;
+    final muted = colorScheme.onSurface.withValues(alpha: 0.56);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final incomeColor = isDark
+        ? const Color(0xFF6DCEA0)
+        : const Color(0xFF278C63);
+    final expenseColor = isDark
+        ? const Color(0xFFFF8D8D)
+        : const Color(0xFFC44848);
     return ValueListenableBuilder<bool>(
       valueListenable: ServiceConfig.privacyModeHiddenNotifier,
       builder: (context, hidden, _) => FittedBox(
@@ -517,9 +524,9 @@ class _DailyTotals extends StatelessWidget {
                   )
                 : Text(
                     _format(income),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: HomeCompactMetrics.dayTotal,
-                      color: Color(0xFF278C63),
+                      color: incomeColor,
                     ),
                   ),
             const SizedBox(width: 5),
@@ -536,9 +543,9 @@ class _DailyTotals extends StatelessWidget {
                   )
                 : Text(
                     _format(expenses),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: HomeCompactMetrics.dayTotal,
-                      color: Color(0xFFC44848),
+                      color: expenseColor,
                     ),
                   ),
           ],

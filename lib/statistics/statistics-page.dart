@@ -68,9 +68,12 @@ class StatisticsPageState extends State<StatisticsPage> {
   Widget build(BuildContext context) {
     final records = _records;
     if (records == null) {
-      return const Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
       );
     }
     return CompactStatisticsPage(
